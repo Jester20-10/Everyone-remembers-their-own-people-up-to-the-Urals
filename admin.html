@@ -24,7 +24,6 @@
 </head>
 <body>
 
-    <!-- Форма входа -->
     <div id="loginSection" class="login-box">
         <h2>🔐 Вход для модератора</h2>
         <input type="email" id="email" placeholder="Email">
@@ -33,18 +32,17 @@
         <p id="loginError" style="color:red; display:none; margin-top:10px;">Ошибка входа</p>
     </div>
 
-    <!-- Панель управления -->
     <div id="dashboardSection" class="dashboard">
         <div class="header-admin">
             <h2>📋 Заявки на модерацию</h2>
             <button class="btn-logout" onclick="logout()">Выйти</button>
         </div>
-        
         <div id="requestsList" class="card-list">
             <p>Загрузка заявок...</p>
         </div>
     </div>
 
+    <script type="module" src="firebase-config.js"></script>
     <script type="module" src="admin.js"></script>
 </body>
 </html>
