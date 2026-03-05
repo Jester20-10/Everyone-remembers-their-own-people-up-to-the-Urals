@@ -155,9 +155,74 @@ window.rejectHero = async (id) => {
     loadContent();
 };
 
-window.deleteHero = async (id) => {
-    // Логика удаления из published (аналогично предыдущей версии)
-    alert('Функция удаления требует доработки поиска документа в heroes по ID submissions.');
+window.deleteHero = async (id, name) => {
+    // id здесь - это ID документа в коллекции submissions
+    // name - имя героя для подтверждения
+    
+    if (!confirm(`⚠️ ВНИМАНИЕ!\nВы действительно хотите удалить героя "${name}"?\n\nЭто действие удалит его из приложения у всех пользователей и из базы данных. Восстановить будет невозможно.`)) {
+        return;
+    }
+
+    try {
+        // Шаг 1: Получаем данные удаляемой заявки, чтобы найти соответствующего героя
+        const subDocRef = doc(db, "submissions", id);
+        const subSnap = await getDocs(query(collection(db, "submissions"), where("__name__", "==", id))); // Хак для получения данных, если нет getDoc
+        
+        // Более надежный способ получить данные, если мы уже загрузили список в loadContent:
+        // Но так как функция вызывается из HTML onclick, нам нужно найти данные заново или передать их.
+        // Давайте найдем документ в submissions напрямую через перебор (так как getDoc не импортирован в старом коде, но можно добавить)
+        
+        // Добавим импорт getDoc в начало admin.js, если его нет:
+        // import { ..., getDoc } from "...";
+        // Тогда: const subDoc = await getDoc(subDocRef); const data = subDoc.data();
+        
+        // Вариант без getDoc (перебор):
+        const allSubs = await getDocs(collection(db, "submissions"));
+        let targetData = null;
+        allSubs.forEach(d => { if (d.id === id) targetData = d.data(); });
+
+        if (!targetData) throw new Error("Данные заявки не найдены");
+
+        // Шаг 2: Находим опубликованного героя в коллекции 'heroes'
+        // Ищем по статусу published
+        const heroesQ = query(collection(db, "heroes"), where("status", "==", "published"));
+        const heroesSnap = await getDocs(heroesQ);
+        
+        let heroToDeleteId = null;
+        
+        heroesSnap.forEach(d => {
+            const hData = d.data();
+            // Сравниваем по уникальным полям: Имя + Район + (опционально) История
+            // Это самый надежный способ связать черновик и публикацию без явного ID связи
+            if (hData.name === targetData.name && hData.district === targetData.district) {
+                // Дополнительная проверка: если имен много, сравниваем историю
+                if (hData.story === targetData.story) {
+                    heroToDeleteId = d.id;
+                }
+            }
+        });
+
+        if (heroToDeleteId) {
+            // Удаляем из коллекции heroes
+            await deleteDoc(doc(db, "heroes", heroToDeleteId));
+            console.log(`Герой ${heroToDeleteId} удален из публикации.`);
+        } else {
+            console.warn("Опубликованная версия не найдена (возможно, еще не одобрена или уже удалена).");
+        }
+
+        // Шаг 3: Удаляем или помечаем заявку в submissions
+        // Лучше пометить как 'removed', чтобы история действий сохранялась, но для простоты удалим:
+        await deleteDoc(subDocRef);
+        
+        alert(`✅ Герой "${name}" успешно удален из системы.`);
+        
+        // Обновляем список
+        loadContent();
+
+    } catch (error) {
+        console.error("Ошибка при удалении:", error);
+        alert("❌ Ошибка удаления: " + error.message);
+    }
 };
 
 // Редактирование админом (открывает модалку из admin.html)
