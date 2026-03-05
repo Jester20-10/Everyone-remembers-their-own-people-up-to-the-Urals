@@ -13,7 +13,6 @@ document.addEventListener('DOMContentLoaded', () => {
     loadMedia();
     initMap();
 
-    // Навигация
     window.switchTab = (tabName) => {
         document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active'));
         document.querySelectorAll('.nav-btn').forEach(el => el.classList.remove('active'));
@@ -22,7 +21,6 @@ document.addEventListener('DOMContentLoaded', () => {
         if (tabName === 'map' && map) setTimeout(() => map.invalidateSize(), 300);
     };
 
-    // Кнопки модальных окон
     document.getElementById('openAddModalBtn')?.addEventListener('click', () => toggleModal('modalAdd', true));
     document.querySelectorAll('.close-btn, .close-btn-add').forEach(btn => 
         btn.addEventListener('click', () => { toggleModal('modalAdd', false); toggleModal('modalDetails', false); })
@@ -41,7 +39,6 @@ function toggleModal(id, show) {
     }
 }
 
-// --- ГЕРОИ И ЗАГРУЗКА ФОТО ---
 async function loadHeroesFromDB() {
     const container = document.getElementById('heroesContainer');
     if (!container) return;
@@ -94,7 +91,6 @@ function openHeroDetails(hero) {
     const dDate = hero.deathDate ? new Date(hero.deathDate).toLocaleDateString() : '?';
     document.getElementById('modalDates').textContent = `${bDate} — ${dDate}`;
 
-    // Боевой путь
     const pathList = document.getElementById('battlePathList');
     pathList.innerHTML = '';
     if (hero.battlePath) {
@@ -109,11 +105,9 @@ function openHeroDetails(hero) {
         pathList.innerHTML = '<li>Информация отсутствует</li>';
     }
 
-    // Видео плеер
     const videoContainer = document.getElementById('videoPlayerContainer');
     videoContainer.innerHTML = '';
     if (hero.video) {
-        // Простая проверка на YouTube для iframe, иначе video tag
         if (hero.video.includes('youtube.com') || hero.video.includes('youtu.be')) {
             const videoId = hero.video.split('v=')[1]?.split('&')[0] || hero.video.split('/').pop();
             videoContainer.innerHTML = `
@@ -157,7 +151,6 @@ async function handleFormSubmit(e) {
         let photoURL = 'https://via.placeholder.com/400?text=Нет+фото';
         let videoURL = document.getElementById('inpVideoLink').value.trim();
 
-        // 1. ЗАГРУЗКА ФОТО НА IMGBB
         const photoFile = document.getElementById('inpFilePhoto').files[0];
         if (photoFile) {
             const formData = new FormData();
@@ -174,7 +167,6 @@ async function handleFormSubmit(e) {
             }
         }
 
-        // 2. СОХРАНЕНИЕ В БАЗУ
         btn.textContent = '💾 Сохранение...';
         
         await addDoc(collection(db, "submissions"), {
@@ -213,13 +205,11 @@ function shareHero() {
     else alert('Ссылка скопирована!');
 }
 
-// --- КАРТА ---
 function initMap() {
     if (map) return;
     map = L.map('memoryMap').setView([57.0, 60.0], 7); 
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { attribution: '© OpenStreetMap' }).addTo(map);
 
-    // Пример точек (можно грузить из БД)
     const memorials = [
         { name: "Мемориал 'Черный Тюльпан'", coords: [56.83, 60.60], desc: "Екатеринбург" },
         { name: "Площадь 1905 года", coords: [56.84, 60.61], desc: "Вечный огонь" },
@@ -228,13 +218,10 @@ function initMap() {
     memorials.forEach(m => L.marker(m.coords).addTo(map).bindPopup(`<b>${m.name}</b><br>${m.desc}`));
 }
 
-// --- МЕДИА ---
 function loadMedia() {
     const vCont = document.getElementById('videoContainer');
     vCont.innerHTML = '<p style="padding:15px">Загрузка...</p>';
     
-    // В реальной версии здесь нужно фильтровать heroesData по наличию video
-    // Для демо покажем заглушку или пустоту, если данных нет
     const videos = heroesData.filter(h => h.video);
     
     if (videos.length === 0) {
@@ -256,7 +243,6 @@ function loadMedia() {
     aCont.innerHTML = '<div class="archive-card archive-item"><span class="archive-icon">📄</span><div>Пример архивного документа (PDF)</div></div>';
 }
 
-// --- КВЕСТЫ ---
 function loadQuests() {
     const quests = [
         { id: 1, text: "Найти информацию о герое своего района", done: false },
