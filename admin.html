@@ -9,37 +9,44 @@
         body { background: #f0f2f5; padding: 20px; font-family: 'Roboto', sans-serif; }
         .login-box { max-width: 400px; margin: 100px auto; background: white; padding: 30px; border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); }
         .dashboard { display: none; max-width: 1000px; margin: 0 auto; }
-        .header-admin { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
+        .header-admin { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; flex-wrap: wrap; gap: 10px; }
+        .tabs { display: flex; gap: 10px; margin-bottom: 20px; }
+        .tab-btn { padding: 10px 20px; border: none; background: #ddd; border-radius: 8px; cursor: pointer; font-weight: bold; }
+        .tab-btn.active { background: #8B0000; color: white; }
         .card-list { display: grid; gap: 15px; }
         .request-card { background: white; padding: 20px; border-radius: 12px; border-left: 5px solid #ffa000; box-shadow: 0 2px 5px rgba(0,0,0,0.05); }
+        .request-card.published { border-left-color: #4caf50; }
         .btn-group { display: flex; gap: 10px; margin-top: 15px; }
         button { padding: 8px 16px; border: none; border-radius: 6px; cursor: pointer; font-weight: bold; }
         .btn-approve { background: #4caf50; color: white; }
         .btn-reject { background: #f44336; color: white; }
+        .btn-delete { background: #607d8b; color: white; }
         .btn-logout { background: #607d8b; color: white; }
         .status-badge { display: inline-block; padding: 4px 8px; border-radius: 4px; font-size: 0.8rem; background: #eee; margin-bottom: 10px; }
     </style>
 </head>
 <body>
-
     <div id="loginSection" class="login-box">
         <h2>🔐 Вход для модератора</h2>
-        <input type="email" id="email" placeholder="Email" class="form-input">
-        <input type="password" id="password" placeholder="Пароль" class="form-input">
-        <button onclick="login()" style="width:100%; background:#8B0000; color:white; margin-top:10px;">Войти</button>
+        <input type="email" id="email" placeholder="Email" class="form-input" style="margin-bottom:10px;">
+        <input type="password" id="password" placeholder="Пароль" class="form-input" style="margin-bottom:10px;">
+        <button onclick="login()" style="width:100%; background:#8B0000; color:white;">Войти</button>
         <p id="loginError" style="color:red; display:none; margin-top:10px;">Ошибка входа</p>
     </div>
 
     <div id="dashboardSection" class="dashboard">
         <div class="header-admin">
-            <h2>📋 Заявки на модерацию</h2>
+            <h2>📋 Управление контентом</h2>
             <button class="btn-logout" onclick="logout()">Выйти</button>
         </div>
+        <div class="tabs">
+            <button class="tab-btn active" onclick="switchTab('pending')">⏳ На модерации (<span id="countPending">0</span>)</button>
+            <button class="tab-btn" onclick="switchTab('published')">✅ Опубликованные (<span id="countPublished">0</span>)</button>
+        </div>
         <div id="requestsList" class="card-list">
-            <p>Загрузка заявок...</p>
+            <p>Загрузка...</p>
         </div>
     </div>
-
     <script type="module" src="firebase-config.js"></script>
     <script type="module" src="admin.js"></script>
 </body>
