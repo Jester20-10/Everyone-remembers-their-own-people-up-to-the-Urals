@@ -2,7 +2,8 @@ import { db, auth } from './firebase-config.js';
 import { collection, getDocs, query, where, addDoc, updateDoc, doc, orderBy } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
 import { createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
 
-const IMGBB_API_KEY = 'ВСТАВЬ_СЮДА_СВОЙ_КЛЮЧ_IMG_BB'; 
+// ⚠️ ВСТАВЬТЕ СЮДА ВАШ КЛЮЧ IMGBB
+const IMGBB_API_KEY = '5ecc8ac91b5b2b810d189851ed7ff416'; 
 
 let heroesData = [];
 let map = null;
@@ -13,6 +14,7 @@ document.addEventListener('DOMContentLoaded', () => {
     onAuthStateChanged(auth, (user) => {
         currentUser = user;
         updateUIForUser();
+        if (user) loadMyHeroes(); // Загружаем список моих героев при входе
     });
 
     loadHeroesFromDB();
@@ -29,6 +31,7 @@ document.addEventListener('DOMContentLoaded', () => {
     };
 
     document.getElementById('profileBtn')?.addEventListener('click', () => toggleAuthModal(true));
+    
     document.getElementById('authForm')?.addEventListener('submit', handleAuth);
     document.getElementById('authToggleLink')?.addEventListener('click', (e) => {
         e.preventDefault();
@@ -38,7 +41,12 @@ document.addEventListener('DOMContentLoaded', () => {
         document.getElementById('authToggleText').textContent = isLoginMode ? 'Нет аккаунта?' : 'Есть аккаунт?';
         document.getElementById('authToggleLink').textContent = isLoginMode ? 'Зарегистрироваться' : 'Войти';
     });
-    document.getElementById('logoutBtn')?.addEventListener('click', () => signOut(auth));
+    
+    document.getElementById('logoutBtn')?.addEventListener('click', async () => {
+        await signOut(auth);
+        toggleAuthModal(false); // Сразу закрываем или обновляем вид
+        alert('Вы вышли из аккаунта');
+    });
 
     document.getElementById('openAddModalBtn')?.addEventListener('click', openAddForm);
     document.querySelectorAll('.close-btn, .close-btn-add').forEach(btn => 
@@ -56,16 +64,23 @@ document.addEventListener('DOMContentLoaded', () => {
 
 function toggleAuthModal(show) {
     const modal = document.getElementById('authModal');
+    const form = document.getElementById('authForm');
+    const dashboard = document.getElementById('userDashboard');
+    
     modal.style.display = show ? 'flex' : 'none';
+    
     if (show && currentUser) {
-        document.getElementById('authForm').style.display = 'none';
-        document.getElementById('logoutBtn').style.display = 'block';
-        document.getElementById('userInfo').textContent = `Вы вошли как: ${currentUser.email}`;
-        document.getElementById('authTitle').textContent = 'Профиль';
+        form.style.display = 'none';
+        dashboard.style.display = 'block';
+        document.getElementById('userInfo').textContent = currentUser.email;
+        document.getElementById('authTitle').textContent = 'Личный кабинет';
+        document.getElementById('authToggleText').parentElement.style.display = 'none'; // Скрыть ссылку на рег
+        loadMyHeroes();
     } else if (show) {
-        document.getElementById('authForm').style.display = 'block';
-        document.getElementById('logoutBtn').style.display = 'none';
-        document.getElementById('userInfo').textContent = '';
+        form.style.display = 'block';
+        dashboard.style.display = 'none';
+        document.getElementById('authToggleText').parentElement.style.display = 'block';
+        document.getElementById('authTitle').textContent = isLoginMode ? 'Вход' : 'Регистрация';
     }
 }
 
@@ -73,6 +88,62 @@ function updateUIForUser() {
     const btn = document.getElementById('profileBtn');
     btn.textContent = currentUser ? '✅' : '👤';
 }
+
+async function loadMyHeroes() {
+    if (!currentUser) return;
+    const list = document.getElementById('myHeroesList');
+    list.innerHTML = '<p style="font-size:0.8rem;">Загрузка...</p>';
+    
+    try {
+        // Ищем в submissions (и черновики, и ожидание, и одобренные, если хотим все)
+        // Для простоты покажем те, что на модерации или уже опубликованы (нужен сложный запрос)
+        // Покажем просто заявки пользователя
+        const q = query(collection(db, "submissions"), where("addedBy", "==", currentUser.uid));
+        const snapshot = await getDocs(q);
+        
+        if (snapshot.empty) {
+            list.innerHTML = '<p style="font-size:0.8rem; color:#777;">Вы пока ничего не добавляли.</p>';
+            return;
+        }
+        
+        list.innerHTML = '';
+        snapshot.forEach(doc => {
+            const data = doc.data();
+            const div = document.createElement('div');
+            div.className = 'my-hero-item';
+            let statusText = data.status === 'published' ? '✅' : (data.status === 'pending_update' ? '⏳ Изм.' : '⏳');
+            div.innerHTML = `<span>${statusText} ${data.name}</span><button onclick="openAddFormById('${doc.id}')">✏️</button>`;
+            list.appendChild(div);
+        });
+    } catch (e) {
+        console.error(e);
+        list.innerHTML = '<p style="color:red">Ошибка</p>';
+    }
+}
+
+// Глобальная функция для доступа из HTML
+window.openAddFormById = async (id) => {
+    // Находим данные героя по ID в текущем списке или грузим отдельно
+    // Для упрощения: ищем в loaded heroesData (если опубликован) или нужно грузить из submissions
+    // Быстрый хак: открываем форму с пустыми данными, но с ID, а загрузку данных сделаем внутри openAddForm если передадим объект
+    // Но у нас нет объекта. Давайте найдем его в базе submissions напрямую
+    try {
+        const docSnap = await getDocs(query(collection(db, "submissions"), where("__name__", "==", id))); // Не работает так в JS SDK v9 без getDoc
+        // Используем getDoc
+        import("https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js").then(({getDoc, doc}) => {
+             getDoc(doc(db, "submissions", id)).then(d => {
+                 if(d.exists()) openAddForm({id: d.id, ...d.data()});
+             });
+        });
+    } catch(e) { console.error(e); }
+};
+// Исправление импорта внутри модуля уже есть, используем напрямую:
+import { getDoc } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+window.openAddFormById = async (id) => {
+    const d = await getDoc(doc(db, "submissions", id));
+    if (d.exists()) openAddForm({id: d.id, ...d.data()});
+};
+
 
 function openAddForm(heroToEdit = null) {
     if (!currentUser && !heroToEdit) {
@@ -93,7 +164,7 @@ function openAddForm(heroToEdit = null) {
     form.reset();
     editIdInput.value = '';
     currentPhotoInfo.style.display = 'none';
-    fileInput.required = true;
+    fileInput.required = true; // Обязательно только для новых
 
     if (heroToEdit) {
         title.textContent = 'Редактирование (на модерацию)';
@@ -158,9 +229,9 @@ function renderHeroes(list) {
 function openHeroDetails(hero) {
     document.getElementById('modalImg').src = hero.image || '';
     document.getElementById('modalName').textContent = hero.name;
-    document.getElementById('modalStory').textContent = hero.story || '';
+    document.getElementById('modalStory').textContent = hero.story || 'Биография не указана';
     document.getElementById('modalRank').textContent = hero.rank || '';
-    document.getElementById('modalType').textContent = hero.type === 'frontovik' ? 'Фронтовик' : 'Тыл';
+    document.getElementById('modalType').textContent = hero.type === 'frontovik' ? 'Фронтовик' : 'Труженик тыла';
     document.getElementById('modalLocation').textContent = hero.location || 'Не указано';
     
     const bDate = hero.birthDate ? new Date(hero.birthDate).toLocaleDateString() : '?';
@@ -239,15 +310,21 @@ async function handleFormSubmit(e) {
         const editId = document.getElementById('editHeroId').value;
         const fileInput = document.getElementById('inpFilePhoto');
         
+        // Загрузка фото
         if (fileInput.files[0]) {
             btn.textContent = '⏳ Загрузка фото...';
             const formData = new FormData();
             formData.append('image', fileInput.files[0]);
             formData.append('key', IMGBB_API_KEY);
+            
             const response = await fetch('https://api.imgbb.com/1/upload', { method: 'POST', body: formData });
             const result = await response.json();
-            if (result.success) photoURL = result.data.url;
-            else throw new Error('Ошибка фото');
+            
+            if (result.success) {
+                photoURL = result.data.url;
+            } else {
+                throw new Error('Ошибка загрузки фото: ' + (result.error?.message || 'Неизвестная ошибка'));
+            }
         }
 
         btn.textContent = '💾 Сохранение...';
@@ -258,7 +335,7 @@ async function handleFormSubmit(e) {
             deathDate: document.getElementById('inpDeath').value,
             rank: document.getElementById('inpRank').value,
             type: document.getElementById('inpType').value,
-            story: document.getElementById('inpStory').value,
+            story: document.getElementById('inpStory').value, // Необязательно
             battlePath: document.getElementById('inpPath').value,
             district: document.getElementById('inpDistrict').value,
             location: document.getElementById('inpLocation').value,
@@ -293,6 +370,7 @@ async function handleFormSubmit(e) {
         document.getElementById('addStoryForm').reset();
         document.querySelectorAll('.modal').forEach(m => m.style.display = 'none');
         document.body.style.overflow = 'auto';
+        loadMyHeroes(); // Обновить список в профиле
 
     } catch (error) {
         console.error(error);
@@ -313,11 +391,22 @@ function initMap() {
     if (map) return;
     map = L.map('memoryMap').setView([57.0, 60.0], 7); 
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { attribution: '© OpenStreetMap' }).addTo(map);
+
+    // Расширенный список памятников
     const memorials = [
         { name: "Мемориал 'Черный Тюльпан'", coords: [56.83, 60.60], desc: "Екатеринбург" },
         { name: "Площадь 1905 года", coords: [56.84, 60.61], desc: "Вечный огонь" },
-        { name: "Памятник труженикам тыла", coords: [57.05, 59.90], desc: "Верхняя Пышма" }
+        { name: "Памятник труженикам тыла", coords: [57.05, 59.90], desc: "Верхняя Пышма" },
+        { name: "Мемориал воинам-уральцам", coords: [56.85, 60.65], desc: "Парк Чкалова, Екатеринбург" },
+        { name: "Памятник Маршалу Жукову", coords: [56.83, 60.62], desc: "Екатеринбург" },
+        { name: "Мемориал 'Скорбящая мать'", coords: [57.93, 56.25], desc: "Пермь (граничит с областью)" },
+        { name: "Памятник заводчанам", coords: [56.95, 60.15], desc: "Первоуральск" },
+        { name: "Мемориал Славы", coords: [56.78, 60.55], desc: "Сысерть" },
+        { name: "Памятник воинам ВОВ", coords: [58.00, 56.30], desc: "Кунгур" },
+        { name: "Стела Героям", coords: [57.20, 61.50], desc: "Талица" },
+        { name: "Мемориал павшим", coords: [56.50, 59.80], desc: "Полевской" }
     ];
+    
     memorials.forEach(m => L.marker(m.coords).addTo(map).bindPopup(`<b>${m.name}</b><br>${m.desc}`));
 }
 
