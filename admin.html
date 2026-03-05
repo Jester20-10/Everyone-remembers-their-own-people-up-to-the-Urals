@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Админ-панель | Урал Помнит</title>
+    <link rel="stylesheet" href="style.css">
+    <style>
+        body { background: #f0f2f5; padding: 20px; font-family: 'Roboto', sans-serif; }
+        .login-box { max-width: 400px; margin: 100px auto; background: white; padding: 30px; border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); }
+        .dashboard { display: none; max-width: 1000px; margin: 0 auto; }
+        .header-admin { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
+        .card-list { display: grid; gap: 15px; }
+        .request-card { background: white; padding: 20px; border-radius: 12px; border-left: 5px solid #ffa000; box-shadow: 0 2px 5px rgba(0,0,0,0.05); }
+        .request-card.approved { border-left-color: #4caf50; opacity: 0.7; }
+        .btn-group { display: flex; gap: 10px; margin-top: 15px; }
+        button { padding: 8px 16px; border: none; border-radius: 6px; cursor: pointer; font-weight: bold; }
+        .btn-approve { background: #4caf50; color: white; }
+        .btn-reject { background: #f44336; color: white; }
+        .btn-logout { background: #607d8b; color: white; }
+        input, textarea { width: 100%; padding: 10px; margin: 5px 0; border: 1px solid #ddd; border-radius: 6px; box-sizing: border-box; }
+        .status-badge { display: inline-block; padding: 4px 8px; border-radius: 4px; font-size: 0.8rem; background: #eee; margin-bottom: 10px; }
+    </style>
+</head>
+<body>
+
+    <!-- Форма входа -->
+    <div id="loginSection" class="login-box">
+        <h2>🔐 Вход для модератора</h2>
+        <input type="email" id="email" placeholder="Email">
+        <input type="password" id="password" placeholder="Пароль">
+        <button onclick="login()" style="width:100%; background:#8B0000; color:white; margin-top:10px;">Войти</button>
+        <p id="loginError" style="color:red; display:none; margin-top:10px;">Ошибка входа</p>
+    </div>
+
+    <!-- Панель управления -->
+    <div id="dashboardSection" class="dashboard">
+        <div class="header-admin">
+            <h2>📋 Заявки на модерацию</h2>
+            <button class="btn-logout" onclick="logout()">Выйти</button>
+        </div>
+        
+        <div id="requestsList" class="card-list">
+            <p>Загрузка заявок...</p>
+        </div>
+    </div>
+
+    <script type="module" src="admin.js"></script>
+</body>
+</html>
