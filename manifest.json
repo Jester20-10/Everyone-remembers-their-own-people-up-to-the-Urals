@@ -7,7 +7,7 @@
   "theme_color": "#8B0000",
   "icons": [
     {
-      "src": 'логотип.png',
+      "src": "логотип.png",
       "sizes": "192x192",
       "type": "image/png"
     }
