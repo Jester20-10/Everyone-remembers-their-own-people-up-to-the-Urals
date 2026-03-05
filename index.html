@@ -5,6 +5,8 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Всё до Урала помнит своих</title>
     <link rel="stylesheet" href="style.css">
+    <!-- Стили для карты Leaflet -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <link rel="manifest" href="manifest.json">
     <meta name="theme-color" content="#8B0000">
     <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&display=swap" rel="stylesheet">
@@ -17,94 +19,135 @@
             <img src="icon.png" alt="Logo" class="header-icon">
             <div>
                 <h1>Урал Помнит</h1>
-                <p class="subtitle">Полная версия | Средний Урал</p>
+                <p class="subtitle">Мультимедийный мемориал</p>
             </div>
         </div>
-        <button id="randomHeroBtn" class="random-btn" title="Случайный герой">🎲</button>
     </header>
 
-    <div class="controls-container">
-        <input type="text" id="searchInput" placeholder="Поиск (фамилия, район, звание)..." class="search-bar">
-        
-        <div class="filters-row">
-            <select id="districtFilter" class="filter-select">
-                <option value="all">Все районы</option>
-                <option value="Калининский">Калининский</option>
-                <option value="Кировский">Кировский</option>
-                <option value="Ленинский">Ленинский</option>
-                <option value="Верхняя Пышма">Верхняя Пышма</option>
-                <option value="Чкаловский">Чкаловский</option>
-                <option value="Октябрьский">Октябрьский</option>
-            </select>
-            
-            <select id="typeFilter" class="filter-select">
-                <option value="all">Все статусы</option>
-                <option value="frontovik">Фронтовики</option>
-                <option value="tyl">Труженики тыла</option>
-            </select>
-        </div>
-        
-        <div class="stats-bar">
-            <span id="statsDisplay">Найдено: 0</span>
-            <span class="divider">|</span>
-            <span id="totalDisplay">Всего: 0</span>
-        </div>
-    </div>
+    <!-- Навигация -->
+    <nav class="bottom-nav">
+        <button class="nav-btn active" onclick="switchTab('heroes')">👥 Герои</button>
+        <button class="nav-btn" onclick="switchTab('map')">🗺️ Карта</button>
+        <button class="nav-btn" onclick="switchTab('media')">🎬 Медиа</button>
+        <button class="nav-btn" onclick="switchTab('quest')">🏆 Квест</button>
+    </nav>
 
-    <main id="heroesContainer" class="heroes-grid">
-        <div style="grid-column: 1/-1; text-align: center; padding: 40px; color: #777;">
-            Загрузка данных...
+    <!-- Вкладка: ГЕРОИ -->
+    <section id="tab-heroes" class="tab-content active">
+        <div class="controls-container">
+            <input type="text" id="searchInput" placeholder="Поиск героя..." class="search-bar">
+            <div class="stats-bar">
+                <span id="statsDisplay">Найдено: 0</span>
+            </div>
         </div>
-    </main>
+        <main id="heroesContainer" class="heroes-grid"></main>
+        <footer>
+            <button id="openAddModalBtn" class="add-story-footer-btn">➕ Добавить историю</button>
+        </footer>
+    </section>
 
-    <!-- Модальное окно: Детали -->
+    <!-- Вкладка: КАРТА -->
+    <section id="tab-map" class="tab-content">
+        <div id="memoryMap" style="height: calc(100vh - 140px); width: 100%;"></div>
+        <div style="padding: 15px; background: white;">
+            <h3>Памятники и захоронения</h3>
+            <p style="font-size: 0.9rem; color: #666;">Интерактивная карта памяти Свердловской области.</p>
+        </div>
+    </section>
+
+    <!-- Вкладка: МЕДИА -->
+    <section id="tab-media" class="tab-content">
+        <h2 style="padding: 20px 20px 0;">🎬 Видео-истории</h2>
+        <div id="videoContainer" class="media-list"></div>
+        
+        <h2 style="padding: 20px 20px 0;">📂 Архивы в кармане</h2>
+        <div id="archiveContainer" class="media-list"></div>
+    </section>
+
+    <!-- Вкладка: КВЕСТ -->
+    <section id="tab-quest" class="tab-content">
+        <div class="quest-header">
+            <h2>🏆 Еженедельный квест</h2>
+            <div class="quest-progress">
+                <span>Прогресс:</span>
+                <div class="progress-bar"><div id="questBar" style="width: 0%"></div></div>
+                <span id="questScore">0/3</span>
+            </div>
+        </div>
+        <div id="questList" class="quest-list"></div>
+    </section>
+
+    <!-- Модальное окно: Детали героя -->
     <div id="modalDetails" class="modal">
-        <div class="modal-content">
+        <div class="modal-content large-modal">
             <span class="close-btn">&times;</span>
-            <img id="modalImg" src="" alt="Hero" class="modal-img">
+            <img id="modalImg" src="" class="modal-img">
             <div class="modal-body">
                 <h2 id="modalName"></h2>
                 <div class="modal-tags">
+                    <span id="modalDates" class="badge years-badge"></span>
                     <span id="modalRank" class="badge"></span>
                     <span id="modalType" class="badge type-badge"></span>
-                    <span id="modalDistrict" class="badge district-badge"></span>
-                    <span id="modalYears" class="badge years-badge"></span>
                 </div>
+                
+                <h3>📜 Биография</h3>
                 <p id="modalStory" class="modal-story"></p>
-                <div class="modal-location-box">
-                    📍 <strong>Место памяти:</strong><br>
-                    <span id="modalLocation"></span>
-                </div>
-                <button id="shareBtn" class="action-btn">📢 Поделиться историей</button>
-                <button id="rememberBtn" class="secondary-btn">❤️ Я помню</button>
+
+                <h3>📍 Боевой путь</h3>
+                <ul id="battlePathList" class="battle-path"></ul>
+
+                <div id="videoPlayerContainer"></div>
+
+                <h3>🏛️ Место памяти</h3>
+                <p id="modalLocation"></p>
+
+                <button id="shareBtn" class="action-btn">📢 Поделиться</button>
             </div>
         </div>
     </div>
 
     <!-- Модальное окно: Добавить историю -->
     <div id="modalAdd" class="modal">
-        <div class="modal-content small-modal">
+        <div class="modal-content small-modal" style="max-height: 95vh; overflow-y: auto;">
             <span class="close-btn-add">&times;</span>
-            <h2>Добавить историю</h2>
-            <p style="font-size: 0.9rem; color: #666; margin-bottom: 15px;">
-                Расскажите о своем герое. Данные будут отправлены на проверку экспертам.
-            </p>
-            
+            <h2>Добавить героя</h2>
             <form id="addStoryForm">
-                <input type="text" placeholder="ФИО Героя (полностью)" required class="form-input">
-                <textarea placeholder="Краткая биография, годы службы, награды..." rows="4" required class="form-input"></textarea>
-                <input type="text" placeholder="Район / Город / Место подвига" required class="form-input">
-                <input type="text" placeholder="Ваше имя и телефон (необязательно)" class="form-input">
-                <button type="submit" id="submitStoryBtn" class="action-btn">Отправить на проверку</button>
+                <input type="text" id="inpName" placeholder="ФИО Героя" required class="form-input">
+                <div class="row-inputs">
+                    <input type="date" id="inpBirth" class="form-input">
+                    <input type="date" id="inpDeath" class="form-input">
+                </div>
+                <input type="text" id="inpRank" placeholder="Звание" class="form-input">
+                <select id="inpType" class="form-input">
+                    <option value="frontovik">Фронтовик</option>
+                    <option value="tyl">Труженик тыла</option>
+                </select>
+                <textarea id="inpStory" placeholder="Биография" rows="3" required class="form-input"></textarea>
+                
+                <label style="font-size:0.8rem; font-weight:bold;">Боевой путь (через точку с запятой):</label>
+                <input type="text" id="inpPath" placeholder="Москва, 1941; Берлин, 1945" class="form-input">
+                
+                <input type="text" id="inpDistrict" placeholder="Район / Город" required class="form-input">
+                <input type="text" id="inpLocation" placeholder="Адрес памятника/захоронения" class="form-input">
+                
+                <!-- ЗАГРУЗКА ФОТО ФАЙЛОМ -->
+                <label style="font-size:0.8rem; font-weight:bold; margin-top:10px; display:block;">📷 Фото героя (файл):</label>
+                <input type="file" id="inpFilePhoto" accept="image/*" class="form-input">
+                
+                <!-- ССЫЛКА НА ВИДЕО -->
+                <label style="font-size:0.8rem; font-weight:bold; margin-top:10px; display:block;">🎬 Ссылка на видео (VK, YouTube, RuTube):</label>
+                <input type="url" id="inpVideoLink" placeholder="https://..." class="form-input">
+                <small style="color:#666; font-size:0.7rem;">Загрузите видео в соцсеть и вставьте ссылку.</small>
+                
+                <input type="text" id="inpContact" placeholder="Ваши контакты" class="form-input">
+                
+                <button type="submit" id="submitBtn" class="action-btn" style="margin-top:15px;">Отправить на модерацию</button>
             </form>
         </div>
     </div>
 
-    <footer>
-        <p>Проект студента МВД | Средний Урал © 2024</p>
-        <button id="openAddModalBtn" class="add-story-footer-btn">➕ Добавить историю семьи</button>
-    </footer>
-
+    <!-- Скрипты -->
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <script type="module" src="firebase-config.js"></script>
     <script type="module" src="app.js"></script>
 </body>
