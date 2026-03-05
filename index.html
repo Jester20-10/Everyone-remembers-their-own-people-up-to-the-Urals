@@ -2,28 +2,70 @@
 <html lang="ru">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Всё до Урала помнит своих</title>
     <link rel="stylesheet" href="style.css">
     <link rel="manifest" href="manifest.json">
     <meta name="theme-color" content="#8B0000">
+    <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&display=swap" rel="stylesheet">
 </head>
 <body>
-    <header>
-        <h1>🕊️ Всё до Урала помнит своих</h1>
-        <p>Пилотная версия | Свердловская область</p>
+
+    <!-- Шапка -->
+    <header class="app-header">
+        <div class="logo-area">
+            <img src="icon.png" alt="Logo" class="header-icon">
+            <h1>Урал Помнит</h1>
+        </div>
+        <p class="subtitle">Полная версия | Свердловская область</p>
     </header>
 
-    <main id="app">
-        <!-- Сюда будет загружаться список героев -->
-        <div class="loader">Загрузка истории...</div>
+    <!-- Панель управления (Поиск и Фильтры) -->
+    <div class="controls">
+        <input type="text" id="searchInput" placeholder="Поиск по фамилии..." class="search-bar">
+        
+        <div class="filters">
+            <select id="districtFilter" class="filter-select">
+                <option value="all">Все районы</option>
+                <option value="Калининский">Калининский</option>
+                <option value="Кировский">Кировский</option>
+                <option value="Верхняя Пышма">Верхняя Пышма</option>
+                <!-- Добавь свои районы -->
+            </select>
+        </div>
+        <div class="stats" id="statsDisplay">Найдено героев: 0</div>
+    </div>
+
+    <!-- Список героев -->
+    <main id="heroesContainer" class="heroes-grid">
+        <!-- Карточки будут добавлены через JS -->
     </main>
 
+    <!-- Модальное окно (Детали) -->
+    <div id="modal" class="modal">
+        <div class="modal-content">
+            <span class="close-btn">&times;</span>
+            <img id="modalImg" src="" alt="Hero" class="modal-img">
+            <h2 id="modalName"></h2>
+            <div class="modal-info">
+                <span id="modalRank" class="badge"></span>
+                <span id="modalDistrict" class="badge district"></span>
+                <span id="modalYears" class="badge years"></span>
+            </div>
+            <p id="modalStory" class="modal-story"></p>
+            <div class="modal-location">
+                📍 <strong>Память:</strong> <span id="modalLocation"></span>
+            </div>
+            <button class="action-btn" onclick="alert('Спасибо! История сохранена в вашем сердце.')">Я помню этого героя</button>
+        </div>
+    </div>
+
     <footer>
-        <button onclick="alert('Функция добавления истории будет в полной версии!')">➕ Добавить историю</button>
-        <p>Проект студента МВД | Средний Урал</p>
+        <p>Проект студента МВД | Средний Урал © 2024</p>
+        <button class="add-story-btn" onclick="alert('Форма добавления истории будет доступна в следующем обновлении!')">➕ Добавить историю</button>
     </footer>
 
-    <script src="script.js"></script>
+    <script src="data.js"></script>
+    <script src="app.js"></script>
 </body>
 </html>
