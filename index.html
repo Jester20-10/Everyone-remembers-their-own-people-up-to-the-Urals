@@ -21,6 +21,8 @@
                 <p class="subtitle">Мультимедийный мемориал</p>
             </div>
         </div>
+        <!-- Кнопка профиля -->
+        <button id="profileBtn" class="random-btn" title="Профиль">👤</button>
     </header>
 
     <!-- Навигация -->
@@ -58,7 +60,6 @@
     <section id="tab-media" class="tab-content">
         <h2 style="padding: 20px 20px 0;">🎬 Видео-истории</h2>
         <div id="videoContainer" class="media-list"></div>
-        
         <h2 style="padding: 20px 20px 0;">📂 Архивы в кармане</h2>
         <div id="archiveContainer" class="media-list"></div>
     </section>
@@ -100,17 +101,23 @@
                 <h3>🏛️ Место памяти</h3>
                 <p id="modalLocation"></p>
 
+                <!-- Кнопка редактирования (видна только владельцу) -->
+                <button id="editOwnHeroBtn" class="secondary-btn" style="background:#2196f3; color:white; margin-bottom:10px; display:none;">✏️ Редактировать мою запись</button>
+
                 <button id="shareBtn" class="action-btn">📢 Поделиться</button>
             </div>
         </div>
     </div>
 
-    <!-- Модальное окно: Добавить историю -->
+    <!-- Модальное окно: Добавить/Редактировать историю -->
     <div id="modalAdd" class="modal">
         <div class="modal-content small-modal" style="max-height: 95vh; overflow-y: auto;">
             <span class="close-btn-add">&times;</span>
-            <h2>Добавить героя</h2>
+            <h2 id="formTitle">Добавить героя</h2>
+            <p id="loginWarning" style="color:red; display:none;">⚠️ Для добавления истории необходимо войти в аккаунт!</p>
+            
             <form id="addStoryForm">
+                <input type="hidden" id="editHeroId"> <!-- Скрытое поле для ID при редактировании -->
                 <input type="text" id="inpName" placeholder="ФИО Героя" required class="form-input">
                 <div class="row-inputs">
                     <input type="date" id="inpBirth" class="form-input">
@@ -131,15 +138,34 @@
                 
                 <label style="font-size:0.8rem; font-weight:bold; margin-top:10px; display:block;">📷 Фото героя (файл):</label>
                 <input type="file" id="inpFilePhoto" accept="image/*" class="form-input">
+                <small id="currentPhotoInfo" style="color:#666; font-size:0.7rem; display:none;">Текущее фото сохранено. Загрузите новое, чтобы заменить.</small>
                 
-                <label style="font-size:0.8rem; font-weight:bold; margin-top:10px; display:block;">🎬 Ссылка на видео (VK, YouTube, RuTube):</label>
+                <label style="font-size:0.8rem; font-weight:bold; margin-top:10px; display:block;">🎬 Ссылка на видео:</label>
                 <input type="url" id="inpVideoLink" placeholder="https://..." class="form-input">
-                <small style="color:#666; font-size:0.7rem;">Загрузите видео в соцсеть и вставьте ссылку.</small>
                 
                 <input type="text" id="inpContact" placeholder="Ваши контакты" class="form-input">
                 
                 <button type="submit" id="submitBtn" class="action-btn" style="margin-top:15px;">Отправить на модерацию</button>
             </form>
+        </div>
+    </div>
+
+    <!-- Модальное окно: Вход/Регистрация -->
+    <div id="authModal" class="modal">
+        <div class="modal-content small-modal">
+            <span class="close-btn-add" onclick="toggleAuthModal(false)">&times;</span>
+            <h2 id="authTitle">Вход</h2>
+            <form id="authForm">
+                <input type="email" id="authEmail" placeholder="Email" required class="form-input">
+                <input type="password" id="authPass" placeholder="Пароль" required class="form-input">
+                <button type="submit" id="authSubmitBtn" class="action-btn">Войти</button>
+            </form>
+            <p style="text-align:center; margin-top:15px; font-size:0.9rem;">
+                <span id="authToggleText">Нет аккаунта?</span> 
+                <a href="#" id="authToggleLink" style="color:#8B0000; font-weight:bold;">Зарегистрироваться</a>
+            </p>
+            <button id="logoutBtn" class="secondary-btn" style="display:none; width:100%; margin-top:10px; background:#607d8b; color:white;">Выйти из аккаунта</button>
+            <p id="userInfo" style="text-align:center; font-size:0.8rem; color:#666; margin-top:10px;"></p>
         </div>
     </div>
 
