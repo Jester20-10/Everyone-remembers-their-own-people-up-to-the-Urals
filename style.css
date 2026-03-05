@@ -1,1 +1,109 @@
+:root {
+    --primary: #8B0000; /* Темно-красный */
+    --bg: #f4f4f4;
+    --card-bg: #ffffff;
+    --text: #333;
+}
 
+body {
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    background-color: var(--bg);
+    color: var(--text);
+    margin: 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    min-height: 100vh;
+}
+
+header {
+    background-color: var(--primary);
+    color: white;
+    padding: 20px;
+    text-align: center;
+    box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+}
+
+header h1 { margin: 0; font-size: 1.5rem; }
+header p { margin: 5px 0 0; opacity: 0.8; font-size: 0.9rem; }
+
+main {
+    flex: 1;
+    padding: 20px;
+    max-width: 600px;
+    margin: 0 auto;
+    width: 100%;
+    box-sizing: border-box;
+}
+
+.hero-card {
+    background: var(--card-bg);
+    border-radius: 12px;
+    padding: 15px;
+    margin-bottom: 20px;
+    box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+    transition: transform 0.2s;
+    cursor: pointer;
+}
+
+.hero-card:active { transform: scale(0.98); }
+
+.hero-img {
+    width: 100%;
+    height: 200px;
+    object-fit: cover;
+    border-radius: 8px;
+    background-color: #ddd;
+}
+
+.hero-name { font-weight: bold; font-size: 1.2rem; margin-top: 10px; color: var(--primary); }
+.hero-district { font-size: 0.9rem; color: #666; margin-bottom: 5px; }
+.hero-preview { font-size: 0.95rem; line-height: 1.4; }
+
+footer {
+    text-align: center;
+    padding: 20px;
+    background: #fff;
+    border-top: 1px solid #ddd;
+}
+
+button {
+    background: var(--primary);
+    color: white;
+    border: none;
+    padding: 12px 24px;
+    border-radius: 8px;
+    font-size: 1rem;
+    cursor: pointer;
+    width: 100%;
+    max-width: 300px;
+}
+
+.loader { text-align: center; color: #666; margin-top: 50px; }
+
+/* Модальное окно для деталей */
+.modal {
+    display: none;
+    position: fixed;
+    top: 0; left: 0; width: 100%; height: 100%;
+    background: rgba(0,0,0,0.8);
+    justify-content: center;
+    align-items: center;
+    z-index: 1000;
+}
+.modal-content {
+    background: white;
+    padding: 20px;
+    border-radius: 12px;
+    max-width: 90%;
+    max-height: 80vh;
+    overflow-y: auto;
+    position: relative;
+}
+.close-btn {
+    position: absolute;
+    top: 10px; right: 15px;
+    font-size: 24px;
+    cursor: pointer;
+    color: #333;
+}
