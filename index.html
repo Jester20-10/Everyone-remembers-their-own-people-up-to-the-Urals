@@ -4,16 +4,23 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Всё до Урала помнит своих</title>
+    
+    <!-- Стили -->
     <link rel="stylesheet" href="style.css">
+    
+    <!-- PWA Manifest -->
     <link rel="manifest" href="manifest.json">
     <meta name="theme-color" content="#8B0000">
+    
+    <!-- Шрифты -->
     <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&display=swap" rel="stylesheet">
+    
     <!-- Иконка -->
     <link rel="icon" type="image/png" href="icon.png">
 </head>
 <body>
 
-    <!-- Шапка -->
+    <!-- Шапка приложения -->
     <header class="app-header">
         <div class="logo-area">
             <img src="icon.png" alt="Logo" class="header-icon">
@@ -25,7 +32,7 @@
         <button id="randomHeroBtn" class="random-btn" title="Случайный герой">🎲</button>
     </header>
 
-    <!-- Панель управления -->
+    <!-- Панель управления: Поиск и Фильтры -->
     <div class="controls-container">
         <input type="text" id="searchInput" placeholder="Поиск (фамилия, район, звание)..." class="search-bar">
         
@@ -36,6 +43,8 @@
                 <option value="Кировский">Кировский</option>
                 <option value="Ленинский">Ленинский</option>
                 <option value="Верхняя Пышма">Верхняя Пышма</option>
+                <option value="Чкаловский">Чкаловский</option>
+                <option value="Октябрьский">Октябрьский</option>
             </select>
             
             <select id="typeFilter" class="filter-select">
@@ -52,9 +61,11 @@
         </div>
     </div>
 
-    <!-- Сетка героев -->
+    <!-- Сетка героев (Контент загружается через JS) -->
     <main id="heroesContainer" class="heroes-grid">
-        <!-- Карточки генерируются JS -->
+        <div style="grid-column: 1/-1; text-align: center; padding: 40px; color: #777;">
+            Загрузка данных из базы... ⏳
+        </div>
     </main>
 
     <!-- Модальное окно: Детали героя -->
@@ -81,16 +92,28 @@
         </div>
     </div>
 
-    <!-- Модальное окно: Добавить историю -->
+    <!-- Модальное окно: Добавить историю (Форма отправки на модерацию) -->
     <div id="modalAdd" class="modal">
         <div class="modal-content small-modal">
             <span class="close-btn-add">&times;</span>
             <h2>Добавить историю</h2>
-            <p>Расскажите о своем герое. Данные будут отправлены на модерацию.</p>
+            <p style="font-size: 0.9rem; color: #666; margin-bottom: 15px;">
+                Расскажите о своем герое. Данные будут отправлены на проверку экспертам и появятся в приложении после одобрения.
+            </p>
+            
             <form id="addStoryForm" onsubmit="submitStory(event)">
-                <input type="text" placeholder="ФИО Героя" required class="form-input">
-                <textarea placeholder="Краткая биография" rows="4" required class="form-input"></textarea>
-                <input type="text" placeholder="Район / Город" required class="form-input">
+                <!-- Поле 0: ФИО -->
+                <input type="text" placeholder="ФИО Героя (полностью)" required class="form-input">
+                
+                <!-- Поле 1: История -->
+                <textarea placeholder="Краткая биография, годы службы, награды..." rows="4" required class="form-input"></textarea>
+                
+                <!-- Поле 2: Район -->
+                <input type="text" placeholder="Район / Город / Место подвига" required class="form-input">
+                
+                <!-- Поле 3: Контакты (для связи с модератором) -->
+                <input type="text" placeholder="Ваше имя и телефон (необязательно, но желательно)" class="form-input">
+                
                 <button type="submit" class="action-btn">Отправить на проверку</button>
             </form>
         </div>
@@ -102,7 +125,9 @@
         <button class="add-story-footer-btn" onclick="openAddModal()">➕ Добавить историю семьи</button>
     </footer>
 
-    <script src="data.js"></script>
-    <script src="app.js"></script>
+    <!-- Подключение скриптов как МОДУЛЕЙ (Обязательно для Firebase) -->
+    <!-- Сначала конфиг, потом логика приложения -->
+    <script type="module" src="firebase-config.js"></script>
+    <script type="module" src="app.js"></script>
 </body>
 </html>
