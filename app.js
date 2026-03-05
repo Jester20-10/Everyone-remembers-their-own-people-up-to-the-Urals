@@ -1,4 +1,3 @@
-// Импорт функций из Firebase SDK
 import { db } from './firebase-config.js';
 import { 
     collection, 
@@ -9,42 +8,86 @@ import {
     orderBy 
 } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
 
-// Глобальная переменная для хранения данных
 let heroesData = [];
 
-// Элементы DOM
-const container = document.getElementById('heroesContainer');
-const searchInput = document.getElementById('searchInput');
-const districtFilter = document.getElementById('districtFilter');
-const typeFilter = document.getElementById('typeFilter');
-const statsDisplay = document.getElementById('statsDisplay');
-const totalDisplay = document.getElementById('totalDisplay');
-
-// Модальные окна
-const modalDetails = document.getElementById('modalDetails');
-const modalAdd = document.getElementById('modalAdd');
-const closeBtns = document.querySelectorAll('.close-btn, .close-btn-add');
-
-// Кнопка случайного героя
-const randomHeroBtn = document.getElementById('randomHeroBtn');
-if (randomHeroBtn) {
-    randomHeroBtn.addEventListener('click', showRandomHero);
-}
-
-// --- ИНИЦИАЛИЗАЦИЯ ---
+// --- ИНИЦИАЛИЗАЦИЯ ПРИ ЗАГРУЗКЕ СТРАНИЦЫ ---
 document.addEventListener('DOMContentLoaded', () => {
+    
+    // 1. Загрузка героев
     loadHeroesFromDB();
+
+    // 2. Привязка кнопок (Исправление бага с модулями)
+    
+    // Кнопка открытия формы добавления
+    const openAddBtn = document.getElementById('openAddModalBtn');
+    if (openAddBtn) {
+        openAddBtn.addEventListener('click', () => {
+            const modal = document.getElementById('modalAdd');
+            if(modal) {
+                modal.style.display = 'flex';
+                document.body.style.overflow = 'hidden';
+            }
+        });
+    }
+
+    // Кнопка отправки формы
+    const form = document.getElementById('addStoryForm');
+    if (form) {
+        form.addEventListener('submit', handleFormSubmit);
+    }
+
+    // Кнопка случайного героя
+    const randomBtn = document.getElementById('randomHeroBtn');
+    if (randomBtn) {
+        randomBtn.addEventListener('click', showRandomHero);
+    }
+
+    // Кнопка "Поделиться"
+    const shareBtn = document.getElementById('shareBtn');
+    if (shareBtn) {
+        shareBtn.addEventListener('click', shareHero);
+    }
+
+    // Кнопка "Я помню" (просто алерт)
+    const rememberBtn = document.getElementById('rememberBtn');
+    if (rememberBtn) {
+        rememberBtn.addEventListener('click', () => alert('Спасибо! Вы сохранили память об этом герое.'));
+    }
+
+    // Закрытие модальных окон по крестику
+    const closeBtns = document.querySelectorAll('.close-btn, .close-btn-add');
+    closeBtns.forEach(btn => {
+        btn.addEventListener('click', closeAllModals);
+    });
+
+    // Закрытие по клику вне окна
+    window.onclick = (e) => {
+        const modalDetails = document.getElementById('modalDetails');
+        const modalAdd = document.getElementById('modalAdd');
+        if (e.target == modalDetails || e.target == modalAdd) {
+            closeAllModals();
+        }
+    };
+
+    // Фильтры
+    const searchInput = document.getElementById('searchInput');
+    const districtFilter = document.getElementById('districtFilter');
+    const typeFilter = document.getElementById('typeFilter');
+
+    if (searchInput) searchInput.addEventListener('input', filterHeroes);
+    if (districtFilter) districtFilter.addEventListener('change', filterHeroes);
+    if (typeFilter) typeFilter.addEventListener('change', filterHeroes);
 });
 
-// --- ЗАГРУЗКА ДАННЫХ ИЗ БАЗЫ ---
+// --- ОСНОВНЫЕ ФУНКЦИИ ---
+
 async function loadHeroesFromDB() {
+    const container = document.getElementById('heroesContainer');
     if (!container) return;
     
-    // Показываем индикатор загрузки
     container.innerHTML = '<div style="grid-column: 1/-1; text-align: center; padding: 40px;">Загрузка истории Урала... ⏳</div>';
 
     try {
-        // Запрос: получить только опубликованных героев, отсортированных по имени
         const q = query(
             collection(db, "heroes"), 
             where("status", "==", "published"),
@@ -52,41 +95,41 @@ async function loadHeroesFromDB() {
         );
         
         const snapshot = await getDocs(q);
-        
         heroesData = [];
         snapshot.forEach(doc => {
             heroesData.push({ id: doc.id, ...doc.data() });
         });
         
-        // Обновляем статистику
+        const totalDisplay = document.getElementById('totalDisplay');
         if (totalDisplay) totalDisplay.textContent = `Всего: ${heroesData.length}`;
         
         renderHeroes(heroesData);
         
     } catch (error) {
-        console.error("Ошибка загрузки данных:", error);
-        container.innerHTML = `
-            <div style="grid-column: 1/-1; text-align: center; padding: 40px; color: #d32f2f;">
+        console.error("Ошибка загрузки:", error);
+        if(container) {
+            container.innerHTML = `<div style="grid-column: 1/-1; text-align: center; padding: 40px; color: #d32f2f;">
                 <h3>⚠️ Ошибка подключения</h3>
-                <p>Не удалось загрузить данные из базы. Проверьте интернет или настройки Firebase.</p>
+                <p>Проверьте интернет или настройки Firebase.</p>
                 <small>${error.message}</small>
             </div>`;
+        }
     }
 }
 
-// --- ОТРИСОВКА КАРТОЧЕК ---
 function renderHeroes(heroes) {
+    const container = document.getElementById('heroesContainer');
+    const statsDisplay = document.getElementById('statsDisplay');
     if (!container) return;
+
     container.innerHTML = '';
-    
     if (statsDisplay) statsDisplay.textContent = `Найдено: ${heroes.length}`;
 
     if (heroes.length === 0) {
-        container.innerHTML = `
-            <div style="grid-column: 1/-1; text-align: center; padding: 40px; color: #777;">
-                <h3>Ничего не найдено 😔</h3>
-                <p>Попробуйте изменить параметры поиска или добавить новую историю!</p>
-            </div>`;
+        container.innerHTML = `<div style="grid-column: 1/-1; text-align: center; padding: 40px; color: #777;">
+            <h3>Ничего не найдено 😔</h3>
+            <p>Попробуйте изменить поиск или добавьте новую историю!</p>
+        </div>`;
         return;
     }
 
@@ -95,10 +138,7 @@ function renderHeroes(heroes) {
         card.className = 'hero-card';
         card.onclick = () => openDetails(hero);
 
-        // Определение лейбла типа
         const typeLabel = hero.type === 'frontovik' ? 'Фронтовик' : 'Труженик тыла';
-        
-        // Безопасная вставка данных (защита от XSS через textContent была бы лучше, но для простоты используем шаблон с проверкой)
         const imgUrl = hero.image || 'https://via.placeholder.com/400x500?text=Нет+фото';
         const name = hero.name || 'Без имени';
         const district = hero.district || 'Район не указан';
@@ -116,36 +156,32 @@ function renderHeroes(heroes) {
     });
 }
 
-// --- ФИЛЬТРАЦИЯ ---
 function filterHeroes() {
-    const text = searchInput ? searchInput.value.toLowerCase() : '';
+    const searchInput = document.getElementById('searchInput');
+    const districtFilter = document.getElementById('districtFilter');
+    const typeFilter = document.getElementById('typeFilter');
+
+    if (!searchInput || !heroesData) return;
+
+    const text = searchInput.value.toLowerCase();
     const district = districtFilter ? districtFilter.value : 'all';
     const type = typeFilter ? typeFilter.value : 'all';
-
-    if (!heroesData) return;
 
     const filtered = heroesData.filter(hero => {
         const matchText = (hero.name && hero.name.toLowerCase().includes(text)) || 
                           (hero.story && hero.story.toLowerCase().includes(text)) ||
                           (hero.rank && hero.rank.toLowerCase().includes(text));
-                          
         const matchDistrict = district === 'all' || hero.district === district;
         const matchType = type === 'all' || hero.type === type;
-
         return matchText && matchDistrict && matchType;
     });
 
     renderHeroes(filtered);
 }
 
-// Навешиваем слушатели событий на фильтры
-if (searchInput) searchInput.addEventListener('input', filterHeroes);
-if (districtFilter) districtFilter.addEventListener('change', filterHeroes);
-if (typeFilter) typeFilter.addEventListener('change', filterHeroes);
-
-// --- МОДАЛЬНОЕ ОКНО: ДЕТАЛИ ГЕРОЯ ---
-window.openDetails = (hero) => {
-    if (!modalDetails) return;
+function openDetails(hero) {
+    const modal = document.getElementById('modalDetails');
+    if (!modal) return;
 
     const imgEl = document.getElementById('modalImg');
     const nameEl = document.getElementById('modalName');
@@ -163,17 +199,12 @@ window.openDetails = (hero) => {
     if (yearsEl) yearsEl.textContent = `${hero.birthYear || '?'} – ${hero.deathYear || '?'}`;
     if (storyEl) storyEl.textContent = hero.story || 'История отсутствует';
     if (locationEl) locationEl.textContent = hero.location || 'Место не указано';
-    
-    if (typeEl) {
-        const typeLabel = hero.type === 'frontovik' ? 'Фронтовик' : 'Труженик тыла';
-        typeEl.textContent = typeLabel;
-    }
+    if (typeEl) typeEl.textContent = hero.type === 'frontovik' ? 'Фронтовик' : 'Труженик тыла';
 
-    modalDetails.style.display = 'flex';
-    document.body.style.overflow = 'hidden'; // Блокировка прокрутки фона
-};
+    modal.style.display = 'flex';
+    document.body.style.overflow = 'hidden';
+}
 
-// --- СЛУЧАЙНЫЙ ГЕРОЙ ---
 function showRandomHero() {
     if (!heroesData || heroesData.length === 0) {
         alert('База данных пуста.');
@@ -183,8 +214,7 @@ function showRandomHero() {
     openDetails(heroesData[randomIndex]);
 }
 
-// --- ШЕРИНГ (ПОДЕЛИТЬСЯ) ---
-window.shareHero = () => {
+function shareHero() {
     const nameEl = document.getElementById('modalName');
     const name = nameEl ? nameEl.textContent : 'Герой';
     
@@ -195,37 +225,29 @@ window.shareHero = () => {
             url: window.location.href
         }).catch(console.error);
     } else {
-        // Фоллбэк для старых браузеров
-        navigator.clipboard.writeText(`Посмотри историю героя ${name} в приложении "Урал Помнит": ${window.location.href}`);
-        alert('Ссылка скопирована в буфер обмена!');
+        navigator.clipboard.writeText(`Посмотри историю героя ${name}: ${window.location.href}`);
+        alert('Ссылка скопирована!');
     }
-};
+}
 
-// --- МОДАЛЬНОЕ ОКНО: ДОБАВИТЬ ИСТОРИЮ ---
-window.openAddModal = () => {
-    if (modalAdd) {
-        modalAdd.style.display = 'flex';
-        document.body.style.overflow = 'hidden';
-    }
-};
-
-// --- ОТПРАВКА ЗАЯВКИ В БАЗУ (МОДЕРАЦИЯ) ---
-window.submitStory = async (e) => {
+// Обработчик отправки формы (теперь вызывается через eventListener)
+async function handleFormSubmit(e) {
     e.preventDefault();
     
     const form = e.target;
     const inputs = form.querySelectorAll('input, textarea');
+    const submitBtn = document.getElementById('submitStoryBtn');
     
-    // Сбор данных (порядок полей должен совпадать с HTML формой)
-    // 0: ФИО, 1: История, 2: Район, 3: Контакты (если есть)
-    const name = inputs[0]?.value.trim() || 'Аноним';
-    const story = inputs[1]?.value.trim() || '';
-    const district = inputs[2]?.value.trim() || 'Не указан';
-    const contact = inputs[3]?.value.trim() || 'Не указан';
+    if (!inputs[0] || !inputs[1] || !inputs[2]) {
+        alert('Ошибка формы. Проверьте поля.');
+        return;
+    }
 
-    const submitBtn = form.querySelector('button[type="submit"]');
-    const originalBtnText = submitBtn ? submitBtn.textContent : 'Отправка...';
-    
+    const name = inputs[0].value.trim();
+    const story = inputs[1].value.trim();
+    const district = inputs[2].value.trim();
+    const contact = inputs[3] ? inputs[3].value.trim() : 'Не указан';
+
     if (submitBtn) {
         submitBtn.disabled = true;
         submitBtn.textContent = 'Отправка...';
@@ -233,49 +255,33 @@ window.submitStory = async (e) => {
 
     try {
         await addDoc(collection(db, "submissions"), {
-            name: name,
-            story: story,
-            district: district,
-            contact: contact,
-            rank: "Требуется уточнение", // По умолчанию
-            type: "tyl", // По умолчанию, модератор изменит
-            birthYear: 0,
-            deathYear: 0,
+            name, story, district, contact,
+            rank: "Требуется уточнение",
+            type: "tyl",
+            birthYear: 0, deathYear: 0,
             location: "Требуется уточнение",
             image: "https://via.placeholder.com/400x500?text=Фото+ожидается",
-            status: "pending", // Статус для модерации
-            createdAt: new Date(),
-            submittedBy: "user_web"
+            status: "pending",
+            createdAt: new Date()
         });
         
-        alert('✅ Спасибо! История успешно отправлена на модерацию.\n\nПосле проверки экспертами она появится в общем списке.');
-        
-        if (modalAdd) modalAdd.style.display = 'none';
-        document.body.style.overflow = 'auto';
+        alert('✅ Спасибо! История отправлена на модерацию.');
+        closeAllModals();
         form.reset();
         
     } catch (error) {
-        console.error("Ошибка при отправке:", error);
-        alert('❌ Ошибка отправки данных. Проверьте подключение к интернету или попробуйте позже.');
+        console.error("Ошибка:", error);
+        alert('❌ Ошибка отправки. Проверьте консоль или интернет.');
     } finally {
         if (submitBtn) {
             submitBtn.disabled = false;
-            submitBtn.textContent = originalBtnText;
+            submitBtn.textContent = 'Отправить на проверку';
         }
     }
-};
+}
 
-// --- ЗАКРЫТИЕ МОДАЛЬНЫХ ОКОН ---
-const closeAllModals = () => {
-    if (modalDetails) modalDetails.style.display = 'none';
-    if (modalAdd) modalAdd.style.display = 'none';
+function closeAllModals() {
+    const modals = [document.getElementById('modalDetails'), document.getElementById('modalAdd')];
+    modals.forEach(m => { if(m) m.style.display = 'none'; });
     document.body.style.overflow = 'auto';
-};
-
-closeBtns.forEach(btn => btn.addEventListener('click', closeAllModals));
-
-window.onclick = (e) => {
-    if (e.target == modalDetails || e.target == modalAdd) {
-        closeAllModals();
-    }
-};
+}
