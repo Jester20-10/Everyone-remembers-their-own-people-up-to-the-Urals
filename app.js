@@ -1,8 +1,8 @@
 import { db, auth } from './firebase-config.js';
-import { collection, getDocs, query, where, addDoc, updateDoc, doc, orderBy } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+import { collection, getDocs, query, where, addDoc, updateDoc, doc, orderBy, getDoc } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
 import { createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
 
-// ⚠️ ВСТАВЬТЕ СЮДА ВАШ КЛЮЧ IMGBB
+// ✅ ВАШ КЛЮЧ IMGBB
 const IMGBB_API_KEY = '5ecc8ac91b5b2b810d189851ed7ff416'; 
 
 let heroesData = [];
@@ -14,7 +14,7 @@ document.addEventListener('DOMContentLoaded', () => {
     onAuthStateChanged(auth, (user) => {
         currentUser = user;
         updateUIForUser();
-        if (user) loadMyHeroes(); // Загружаем список моих героев при входе
+        if (user) loadMyHeroes();
     });
 
     loadHeroesFromDB();
@@ -44,8 +44,8 @@ document.addEventListener('DOMContentLoaded', () => {
     
     document.getElementById('logoutBtn')?.addEventListener('click', async () => {
         await signOut(auth);
-        toggleAuthModal(false); // Сразу закрываем или обновляем вид
-        alert('Вы вышли из аккаунта');
+        toggleAuthModal(false);
+        // alert('Вы вышли из аккаунта'); // Можно убрать алерт, чтобы не мешал
     });
 
     document.getElementById('openAddModalBtn')?.addEventListener('click', openAddForm);
@@ -74,7 +74,7 @@ function toggleAuthModal(show) {
         dashboard.style.display = 'block';
         document.getElementById('userInfo').textContent = currentUser.email;
         document.getElementById('authTitle').textContent = 'Личный кабинет';
-        document.getElementById('authToggleText').parentElement.style.display = 'none'; // Скрыть ссылку на рег
+        document.getElementById('authToggleText').parentElement.style.display = 'none';
         loadMyHeroes();
     } else if (show) {
         form.style.display = 'block';
@@ -95,9 +95,6 @@ async function loadMyHeroes() {
     list.innerHTML = '<p style="font-size:0.8rem;">Загрузка...</p>';
     
     try {
-        // Ищем в submissions (и черновики, и ожидание, и одобренные, если хотим все)
-        // Для простоты покажем те, что на модерации или уже опубликованы (нужен сложный запрос)
-        // Покажем просто заявки пользователя
         const q = query(collection(db, "submissions"), where("addedBy", "==", currentUser.uid));
         const snapshot = await getDocs(q);
         
@@ -111,7 +108,7 @@ async function loadMyHeroes() {
             const data = doc.data();
             const div = document.createElement('div');
             div.className = 'my-hero-item';
-            let statusText = data.status === 'published' ? '✅' : (data.status === 'pending_update' ? '⏳ Изм.' : '⏳');
+            let statusText = data.status === 'published' ? '✅' : (data.status === 'pending_update' ? '⏳ Изм.' : '⏳ Нов.');
             div.innerHTML = `<span>${statusText} ${data.name}</span><button onclick="openAddFormById('${doc.id}')">✏️</button>`;
             list.appendChild(div);
         });
@@ -121,29 +118,10 @@ async function loadMyHeroes() {
     }
 }
 
-// Глобальная функция для доступа из HTML
-window.openAddFormById = async (id) => {
-    // Находим данные героя по ID в текущем списке или грузим отдельно
-    // Для упрощения: ищем в loaded heroesData (если опубликован) или нужно грузить из submissions
-    // Быстрый хак: открываем форму с пустыми данными, но с ID, а загрузку данных сделаем внутри openAddForm если передадим объект
-    // Но у нас нет объекта. Давайте найдем его в базе submissions напрямую
-    try {
-        const docSnap = await getDocs(query(collection(db, "submissions"), where("__name__", "==", id))); // Не работает так в JS SDK v9 без getDoc
-        // Используем getDoc
-        import("https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js").then(({getDoc, doc}) => {
-             getDoc(doc(db, "submissions", id)).then(d => {
-                 if(d.exists()) openAddForm({id: d.id, ...d.data()});
-             });
-        });
-    } catch(e) { console.error(e); }
-};
-// Исправление импорта внутри модуля уже есть, используем напрямую:
-import { getDoc } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
 window.openAddFormById = async (id) => {
     const d = await getDoc(doc(db, "submissions", id));
     if (d.exists()) openAddForm({id: d.id, ...d.data()});
 };
-
 
 function openAddForm(heroToEdit = null) {
     if (!currentUser && !heroToEdit) {
@@ -162,14 +140,16 @@ function openAddForm(heroToEdit = null) {
     modal.style.display = 'flex';
     document.body.style.overflow = 'hidden';
     form.reset();
-    editIdInput.value = '';
+    editIdInput.value = ''; // Сбрасываем ID редактирования
     currentPhotoInfo.style.display = 'none';
-    fileInput.required = true; // Обязательно только для новых
+    fileInput.required = true; // Для нового героя фото обязательно
 
     if (heroToEdit) {
+        // РЕЖИМ РЕДАКТИРОВАНИЯ
         title.textContent = 'Редактирование (на модерацию)';
         submitBtn.textContent = 'Отправить изменения';
         editIdInput.value = heroToEdit.id;
+        
         document.getElementById('inpName').value = heroToEdit.name || '';
         document.getElementById('inpBirth').value = heroToEdit.birthDate || '';
         document.getElementById('inpDeath').value = heroToEdit.deathDate || '';
@@ -180,9 +160,11 @@ function openAddForm(heroToEdit = null) {
         document.getElementById('inpDistrict').value = heroToEdit.district || '';
         document.getElementById('inpLocation').value = heroToEdit.location || '';
         document.getElementById('inpVideoLink').value = heroToEdit.video || '';
+        
         currentPhotoInfo.style.display = 'block';
-        fileInput.required = false;
+        fileInput.required = false; // При редактировании фото не обязательно
     } else {
+        // РЕЖИМ НОВОГО ГЕРОЯ
         title.textContent = 'Добавить героя';
         submitBtn.textContent = 'Отправить на модерацию';
     }
@@ -297,9 +279,11 @@ async function handleAuth(e) {
     } catch (error) { alert('Ошибка: ' + error.message); }
 }
 
+// --- ГЛАВНАЯ ФУНКЦИЯ ОТПРАВКИ (ИСПРАВЛЕНА) ---
 async function handleFormSubmit(e) {
     e.preventDefault();
     if (!currentUser) return alert('Ошибка авторизации');
+    
     const btn = document.getElementById('submitBtn');
     const originalText = btn.textContent;
     btn.disabled = true;
@@ -307,10 +291,10 @@ async function handleFormSubmit(e) {
 
     try {
         let photoURL = null;
-        const editId = document.getElementById('editHeroId').value;
+        const editId = document.getElementById('editHeroId').value.trim(); // Получаем ID редактирования
         const fileInput = document.getElementById('inpFilePhoto');
         
-        // Загрузка фото
+        // 1. Загрузка фото (если выбрано)
         if (fileInput.files[0]) {
             btn.textContent = '⏳ Загрузка фото...';
             const formData = new FormData();
@@ -329,13 +313,14 @@ async function handleFormSubmit(e) {
 
         btn.textContent = '💾 Сохранение...';
         
+        // Сбор данных формы
         const formData = {
             name: document.getElementById('inpName').value,
             birthDate: document.getElementById('inpBirth').value,
             deathDate: document.getElementById('inpDeath').value,
             rank: document.getElementById('inpRank').value,
             type: document.getElementById('inpType').value,
-            story: document.getElementById('inpStory').value, // Необязательно
+            story: document.getElementById('inpStory').value,
             battlePath: document.getElementById('inpPath').value,
             district: document.getElementById('inpDistrict').value,
             location: document.getElementById('inpLocation').value,
@@ -347,20 +332,38 @@ async function handleFormSubmit(e) {
 
         if (photoURL) formData.image = photoURL;
 
+        // 2. ЛОГИКА: НОВЫЙ ИЛИ РЕДАКТИРОВАНИЕ?
         if (editId) {
-            const original = heroesData.find(h => h.id === editId);
-            if (original && !photoURL) formData.image = original.image;
+            // === РЕДАКТИРОВАНИЕ СУЩЕСТВУЮЩЕГО ===
+            // Если это редактирование, берем старое фото, если новое не загружено
+            if (!photoURL) {
+                // Ищем оригинал в текущем списке героев или в базе submissions
+                const original = heroesData.find(h => h.id === editId);
+                if (original && original.image) {
+                    formData.image = original.image;
+                }
+            }
+            
             await addDoc(collection(db, "submissions"), {
                 ...formData,
                 originalHeroId: editId,
-                status: 'pending_update',
-                changeType: 'update'
+                status: 'pending_update', // Статус: ожидает обновления
+                changeType: 'update',
+                createdAt: new Date()
             });
             alert('✅ Изменения отправлены на модерацию!');
+            
         } else {
+            // === СОЗДАНИЕ НОВОГО ГЕРОЯ ===
+            // Фото обязательно для новых (проверено в openAddForm)
+            if (!photoURL && !formData.image) {
+                 // Если фото так и не загрузилось и старого нет
+                 // Но мы требовали файл в openAddForm, так что photoURL должен быть
+            }
+
             await addDoc(collection(db, "submissions"), {
                 ...formData,
-                status: 'pending',
+                status: 'pending', // Статус: новая заявка
                 changeType: 'create',
                 createdAt: new Date()
             });
@@ -392,19 +395,18 @@ function initMap() {
     map = L.map('memoryMap').setView([57.0, 60.0], 7); 
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { attribution: '© OpenStreetMap' }).addTo(map);
 
-    // Расширенный список памятников
     const memorials = [
         { name: "Мемориал 'Черный Тюльпан'", coords: [56.83, 60.60], desc: "Екатеринбург" },
         { name: "Площадь 1905 года", coords: [56.84, 60.61], desc: "Вечный огонь" },
         { name: "Памятник труженикам тыла", coords: [57.05, 59.90], desc: "Верхняя Пышма" },
         { name: "Мемориал воинам-уральцам", coords: [56.85, 60.65], desc: "Парк Чкалова, Екатеринбург" },
         { name: "Памятник Маршалу Жукову", coords: [56.83, 60.62], desc: "Екатеринбург" },
-        { name: "Мемориал 'Скорбящая мать'", coords: [57.93, 56.25], desc: "Пермь (граничит с областью)" },
         { name: "Памятник заводчанам", coords: [56.95, 60.15], desc: "Первоуральск" },
         { name: "Мемориал Славы", coords: [56.78, 60.55], desc: "Сысерть" },
-        { name: "Памятник воинам ВОВ", coords: [58.00, 56.30], desc: "Кунгур" },
         { name: "Стела Героям", coords: [57.20, 61.50], desc: "Талица" },
-        { name: "Мемориал павшим", coords: [56.50, 59.80], desc: "Полевской" }
+        { name: "Мемориал павшим", coords: [56.50, 59.80], desc: "Полевской" },
+        { name: "Памятник воинам ВОВ", coords: [58.40, 60.80], desc: "Нижний Тагил" },
+        { name: "Мемориал 'Катюша'", coords: [56.40, 60.90], desc: "Арамиль" }
     ];
     
     memorials.forEach(m => L.marker(m.coords).addTo(map).bindPopup(`<b>${m.name}</b><br>${m.desc}`));
