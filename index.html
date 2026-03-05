@@ -4,23 +4,14 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Всё до Урала помнит своих</title>
-    
-    <!-- Стили -->
     <link rel="stylesheet" href="style.css">
-    
-    <!-- PWA Manifest -->
     <link rel="manifest" href="manifest.json">
     <meta name="theme-color" content="#8B0000">
-    
-    <!-- Шрифты -->
     <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&display=swap" rel="stylesheet">
-    
-    <!-- Иконка -->
     <link rel="icon" type="image/png" href="icon.png">
 </head>
 <body>
 
-    <!-- Шапка приложения -->
     <header class="app-header">
         <div class="logo-area">
             <img src="icon.png" alt="Logo" class="header-icon">
@@ -29,10 +20,10 @@
                 <p class="subtitle">Полная версия | Средний Урал</p>
             </div>
         </div>
+        <!-- Добавили ID -->
         <button id="randomHeroBtn" class="random-btn" title="Случайный герой">🎲</button>
     </header>
 
-    <!-- Панель управления: Поиск и Фильтры -->
     <div class="controls-container">
         <input type="text" id="searchInput" placeholder="Поиск (фамилия, район, звание)..." class="search-bar">
         
@@ -61,14 +52,13 @@
         </div>
     </div>
 
-    <!-- Сетка героев (Контент загружается через JS) -->
     <main id="heroesContainer" class="heroes-grid">
         <div style="grid-column: 1/-1; text-align: center; padding: 40px; color: #777;">
             Загрузка данных из базы... ⏳
         </div>
     </main>
 
-    <!-- Модальное окно: Детали героя -->
+    <!-- Модальное окно: Детали -->
     <div id="modalDetails" class="modal">
         <div class="modal-content">
             <span class="close-btn">&times;</span>
@@ -86,47 +76,41 @@
                     📍 <strong>Место памяти:</strong><br>
                     <span id="modalLocation"></span>
                 </div>
-                <button class="action-btn" onclick="shareHero()">📢 Поделиться историей</button>
-                <button class="secondary-btn" onclick="alert('Спасибо! Вы сохранили память об этом герое.')">❤️ Я помню</button>
+                <!-- Добавили ID кнопке шеринга -->
+                <button id="shareBtn" class="action-btn">📢 Поделиться историей</button>
+                <button class="secondary-btn" id="rememberBtn">❤️ Я помню</button>
             </div>
         </div>
     </div>
 
-    <!-- Модальное окно: Добавить историю (Форма отправки на модерацию) -->
+    <!-- Модальное окно: Добавить историю -->
     <div id="modalAdd" class="modal">
         <div class="modal-content small-modal">
             <span class="close-btn-add">&times;</span>
             <h2>Добавить историю</h2>
             <p style="font-size: 0.9rem; color: #666; margin-bottom: 15px;">
-                Расскажите о своем герое. Данные будут отправлены на проверку экспертам и появятся в приложении после одобрения.
+                Расскажите о своем герое. Данные будут отправлены на проверку экспертам.
             </p>
             
-            <form id="addStoryForm" onsubmit="submitStory(event)">
-                <!-- Поле 0: ФИО -->
+            <form id="addStoryForm">
                 <input type="text" placeholder="ФИО Героя (полностью)" required class="form-input">
-                
-                <!-- Поле 1: История -->
                 <textarea placeholder="Краткая биография, годы службы, награды..." rows="4" required class="form-input"></textarea>
-                
-                <!-- Поле 2: Район -->
                 <input type="text" placeholder="Район / Город / Место подвига" required class="form-input">
+                <input type="text" placeholder="Ваше имя и телефон (необязательно)" class="form-input">
                 
-                <!-- Поле 3: Контакты (для связи с модератором) -->
-                <input type="text" placeholder="Ваше имя и телефон (необязательно, но желательно)" class="form-input">
-                
-                <button type="submit" class="action-btn">Отправить на проверку</button>
+                <!-- Убрали onsubmit, добавили ID -->
+                <button type="submit" id="submitStoryBtn" class="action-btn">Отправить на проверку</button>
             </form>
         </div>
     </div>
 
-    <!-- Футер -->
     <footer>
         <p>Проект студента МВД | Средний Урал © 2024</p>
-        <button class="add-story-footer-btn" onclick="openAddModal()">➕ Добавить историю семьи</button>
+        <!-- Добавили ID кнопке открытия формы -->
+        <button id="openAddModalBtn" class="add-story-footer-btn">➕ Добавить историю семьи</button>
     </footer>
 
-    <!-- Подключение скриптов как МОДУЛЕЙ (Обязательно для Firebase) -->
-    <!-- Сначала конфиг, потом логика приложения -->
+    <!-- Подключение скриптов -->
     <script type="module" src="firebase-config.js"></script>
     <script type="module" src="app.js"></script>
 </body>
