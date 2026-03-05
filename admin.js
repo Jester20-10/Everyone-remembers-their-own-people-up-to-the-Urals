@@ -1,6 +1,9 @@
 import { auth, db } from './firebase-config.js';
 import { signInWithEmailAndPassword, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
-import { collection, addDoc, getDocs, getDoc, query, where, updateDoc, doc, deleteDoc } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+import { 
+    collection, addDoc, getDocs, getDoc, query, where, 
+    updateDoc, doc, deleteDoc, orderBy 
+} from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
 
 let currentTab = 'pending';
 
@@ -8,6 +11,7 @@ const loginSection = document.getElementById('loginSection');
 const dashboardSection = document.getElementById('dashboardSection');
 const requestsList = document.getElementById('requestsList');
 
+// --- АВТОРИЗАЦИЯ ---
 onAuthStateChanged(auth, (user) => {
     if (user) {
         loginSection.style.display = 'none';
@@ -22,11 +26,19 @@ onAuthStateChanged(auth, (user) => {
 window.login = async () => {
     const email = document.getElementById('email').value;
     const pass = document.getElementById('password').value;
-    try { await signInWithEmailAndPassword(auth, email, pass); } 
-    catch (error) { document.getElementById('loginError').style.display = 'block'; }
+    try { 
+        await signInWithEmailAndPassword(auth, email, pass); 
+        document.getElementById('loginError').style.display = 'none';
+    } catch (error) { 
+        const errBox = document.getElementById('loginError');
+        errBox.textContent = "Ошибка: " + error.message;
+        errBox.style.display = 'block'; 
+    }
 };
+
 window.logout = () => signOut(auth);
 
+// --- ПЕРЕКЛЮЧЕНИЕ ВКЛАДОК ---
 window.switchTab = (tab) => {
     currentTab = tab;
     document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
@@ -34,176 +46,248 @@ window.switchTab = (tab) => {
     loadContent();
 };
 
+// --- ЗАГРУЗКА КОНТЕНТА ---
 async function loadContent() {
-    requestsList.innerHTML = '<p style="text-align:center; padding:20px;">Загрузка...</p>';
+    requestsList.innerHTML = '<p style="text-align:center; padding:20px;">Загрузка данных...</p>';
+    
     try {
-        let q;
         if (currentTab === 'pending') {
-            q = query(collection(db, "submissions"), where("status", "in", ['pending', 'pending_update']));
+            // Загружаем заявки на модерацию (новые и изменения)
+            await loadPendingRequests();
         } else {
-            // Для опубликованных ищем статус published
-            q = query(collection(db, "submissions"), where("status", "==", 'published'));
+            // Загружаем опубликованных героев напрямую из базы heroes
+            await loadPublishedHeroes();
         }
-        
-        const snapshot = await getDocs(q);
-        let count = 0;
-        requestsList.innerHTML = '';
-        
-        if (snapshot.empty) {
-            requestsList.innerHTML = `<div style="text-align:center; padding:40px; color:#666;">${currentTab === 'pending' ? 'Нет заявок' : 'Нет опубликованных записей в черновиках'}</div>`;
-            // Примечание: Опубликованные герои хранятся в коллекции heroes, но мы показываем здесь связь с submissions
-            // Если вы хотите видеть ВСЕХ героев из коллекции heroes, логику нужно чуть изменить.
-            // Сейчас этот код показывает те, что имеют статус published в submissions.
-            // Для полного списка героев лучше делать запрос к коллекции heroes.
-            if (currentTab === 'published') {
-                 await loadPublishedHeroesDirectly();
-                 return;
-            }
-            return;
-        }
-
-        const items = [];
-        snapshot.forEach(docSnap => items.push({ id: docSnap.id, ...docSnap.data() }));
-        items.sort((a, b) => (b.createdAt?.seconds || 0) - (a.createdAt?.seconds || 0));
-
-        items.forEach(data => {
-            count++;
-            const id = data.id;
-            const isUpdate = data.status === 'pending_update';
-            const badgeText = isUpdate ? '✏️ Изменение' : '➕ Новый';
-            
-            const card = document.createElement('div');
-            card.className = 'request-card';
-            
-            let actionButtons = '';
-            if (currentTab === 'pending') {
-                if (isUpdate) {
-                    actionButtons = `
-                        <button class="btn-approve" onclick="approveUpdate('${id}', '${data.originalHeroId}')">✅ Применить</button>
-                        <button class="btn-reject" onclick="rejectHero('${id}')">❌ Отклонить</button>
-                    `;
-                } else {
-                    actionButtons = `
-                        <button class="btn-approve" onclick="approveHero('${id}')">✅ Одобрить</button>
-                        <button class="btn-reject" onclick="rejectHero('${id}')">❌ Отклонить</button>
-                    `;
-                }
-            } else {
-                actionButtons = `
-                    <button class="btn-delete" onclick="deleteHero('${id}', '${data.name.replace(/'/g, "\\'")}')">🗑️ Удалить</button>
-                `;
-            }
-
-            card.innerHTML = `
-                <div style="display:flex; justify-content:space-between;"><span class="status-badge">${badgeText}</span></div>
-                <h3 style="color:#8B0000;">${data.name}</h3>
-                <p><strong>Район:</strong> ${data.district}</p>
-                <p><strong>Статус:</strong> ${data.status}</p>
-                <div class="btn-group">${actionButtons}</div>
-            `;
-            requestsList.appendChild(card);
-        });
-        
-        document.getElementById('countPending').textContent = currentTab === 'pending' ? count : '-';
-        document.getElementById('countPublished').textContent = currentTab === 'published' ? count : '-';
-
-    } catch (error) { console.error(error); }
+    } catch (error) {
+        console.error("Ошибка загрузки:", error);
+        requestsList.innerHTML = `<p style="color:red; text-align:center;">Ошибка: ${error.message}</p>`;
+    }
 }
 
-// Отдельная функция для загрузки всех героев из основной коллекции
-async function loadPublishedHeroesDirectly() {
-    const q = query(collection(db, "heroes"), where("status", "==", "published"));
+// 1. Загрузка заявок (Pending & Pending_Update)
+async function loadPendingRequests() {
+    const q = query(collection(db, "submissions"), where("status", "in", ["pending", "pending_update"]));
     const snapshot = await getDocs(q);
-    let count = 0;
-    const list = document.getElementById('requestsList');
-    list.innerHTML = '';
     
-    if(snapshot.empty) {
-        list.innerHTML = '<div style="text-align:center">Список пуст</div>';
+    let count = 0;
+    requestsList.innerHTML = '';
+    
+    if (snapshot.empty) {
+        requestsList.innerHTML = '<div style="text-align:center; padding:40px; color:#4caf50;"><h3>🎉 Нет заявок на модерацию</h3><p>Все истории проверены!</p></div>';
+        document.getElementById('countPending').textContent = '0';
         return;
     }
 
-    snapshot.forEach(docSnap => {
+    const items = [];
+    snapshot.forEach(docSnap => items.push({ id: docSnap.id, ...docSnap.data() }));
+    // Сортировка: новые сверху
+    items.sort((a, b) => (b.createdAt?.seconds || 0) - (a.createdAt?.seconds || 0));
+
+    items.forEach(data => {
         count++;
-        const data = docSnap.data();
-        const id = docSnap.id;
+        const id = data.id;
+        const isUpdate = data.status === 'pending_update';
+        const badgeText = isUpdate ? '✏️ Изменение' : '➕ Новый герой';
+        const statusColor = isUpdate ? '#ff9800' : '#2196f3';
+        
+        const card = document.createElement('div');
+        card.className = 'request-card';
+        card.style.borderLeftColor = statusColor;
+        
+        let actionButtons = '';
+        if (isUpdate) {
+            actionButtons = `
+                <button class="btn-approve" onclick="approveUpdate('${id}', '${data.originalHeroId}')">✅ Применить изменения</button>
+                <button class="btn-reject" onclick="rejectHero('${id}')">❌ Отклонить</button>
+            `;
+        } else {
+            actionButtons = `
+                <button class="btn-approve" onclick="approveHero('${id}')">✅ Одобрить и Опубликовать</button>
+                <button class="btn-reject" onclick="rejectHero('${id}')">❌ Отклонить</button>
+            `;
+        }
+
+        card.innerHTML = `
+            <div style="display:flex; justify-content:space-between; align-items:center;">
+                <span class="status-badge" style="background:${statusColor}; color:white;">${badgeText}</span>
+                <small style="color:#999">${data.createdAt ? new Date(data.createdAt.seconds * 1000).toLocaleDateString() : ''}</small>
+            </div>
+            
+            <h3 style="margin:10px 0 5px; color:#8B0000;">${data.name || 'Без имени'}</h3>
+            
+            <div style="background:#f9f9f9; padding:10px; border-radius:8px; margin-bottom:10px; font-size:0.9rem;">
+                <p><strong>Район:</strong> ${data.district || '-'}</p>
+                <p><strong>Статус:</strong> ${data.type === 'frontovik' ? 'Фронтовик' : 'Труженик тыла'}</p>
+                ${data.birthDate ? `<p><strong>Даты:</strong> ${new Date(data.birthDate).toLocaleDateString()} — ${data.deathDate ? new Date(data.deathDate).toLocaleDateString() : '?'}</p>` : ''}
+            </div>
+
+            <p><strong>📜 Биография:</strong><br><span style="white-space: pre-wrap; font-size:0.9rem;">${data.story || 'Нет биографии'}</span></p>
+            
+            ${data.battlePath ? `<p><strong>📍 Боевой путь:</strong><br><span style="font-size:0.9rem;">${data.battlePath}</span></p>` : ''}
+
+            <div style="margin-top:10px; font-size:0.9rem; display:grid; gap:5px;">
+                ${data.image && !data.image.includes('placeholder') ? 
+                  `<p><strong>📷 Фото:</strong> <a href="${data.image}" target="_blank" style="color:#2196f3;">Открыть ссылку</a></p>` : 
+                  '<p><strong>📷 Фото:</strong> Не загружено</p>'}
+                
+                ${data.video ? 
+                  `<p><strong>🎬 Видео:</strong> <a href="${data.video}" target="_blank" style="color:#2196f3;">Открыть ссылку</a></p>` : 
+                  ''}
+            </div>
+
+            <p style="font-size:0.85rem; color:#666; margin-top:10px; border-top:1px solid #eee; paddingTop:5px;">
+                <strong>Контакты заявителя:</strong> ${data.contact || 'Не указаны'}
+            </p>
+
+            <div class="btn-group">
+                ${actionButtons}
+            </div>
+        `;
+        requestsList.appendChild(card);
+    });
+
+    document.getElementById('countPending').textContent = count;
+}
+
+// 2. Загрузка опубликованных героев (Прямой запрос к базе heroes)
+async function loadPublishedHeroes() {
+    const q = query(collection(db, "heroes"), where("status", "==", "published"));
+    const snapshot = await getDocs(q);
+    
+    let count = 0;
+    requestsList.innerHTML = '';
+    
+    if (snapshot.empty) {
+        requestsList.innerHTML = '<div style="text-align:center; padding:40px; color:#666;"><p>Список опубликованных героев пуст.</p></div>';
+        document.getElementById('countPublished').textContent = '0';
+        return;
+    }
+
+    const items = [];
+    snapshot.forEach(docSnap => items.push({ id: docSnap.id, ...docSnap.data() }));
+    // Сортировка по имени
+    items.sort((a, b) => a.name.localeCompare(b.name));
+
+    items.forEach(data => {
+        count++;
+        const id = data.id;
+        
         const card = document.createElement('div');
         card.className = 'request-card published';
+        
         card.innerHTML = `
-            <h3 style="color:#8B0000;">${data.name}</h3>
-            <p><strong>Район:</strong> ${data.district}</p>
+            <div style="display:flex; justify-content:space-between;">
+                <span class="status-badge" style="background:#4caf50; color:white;">✅ Опубликован</span>
+                <small style="color:#999">ID: ${id.substr(0,8)}...</small>
+            </div>
+            
+            <h3 style="margin:10px 0 5px; color:#8B0000;">${data.name || 'Без имени'}</h3>
+            <p><strong>Район:</strong> ${data.district || '-'}</p>
+            <p><strong>Добавил:</strong> ${data.addedBy ? 'Пользователь' : 'Админ'}</p>
+            
             <div class="btn-group">
                 <button class="btn-delete" onclick="deletePublishedHero('${id}', '${data.name.replace(/'/g, "\\'")}')">🗑️ Удалить из базы</button>
             </div>
         `;
-        list.appendChild(card);
+        requestsList.appendChild(card);
     });
+
     document.getElementById('countPublished').textContent = count;
 }
 
+// --- ДЕЙСТВИЯ ---
+
+// Одобрение нового героя
 window.approveHero = async (id) => {
+    if(!confirm('Одобрить этого героя? Он появится в приложении у всех пользователей.')) return;
+    
     try {
         const subDoc = await getDoc(doc(db, "submissions", id));
-        if(!subDoc.exists()) return;
+        if (!subDoc.exists()) throw new Error("Заявка не найдена");
         const data = subDoc.data();
         
-        await addDoc(collection(db, "heroes"), { ...data, status: 'published', approvedAt: new Date() });
+        // Копируем в базу heroes
+        await addDoc(collection(db, "heroes"), { 
+            ...data, 
+            status: 'published', 
+            approvedAt: new Date(),
+            approvedBy: auth.currentUser.email 
+        });
+        
+        // Меняем статус заявки
         await updateDoc(doc(db, "submissions", id), { status: 'approved' });
-        alert('Опубликовано!');
+        
+        alert('✅ Герой успешно опубликован!');
         loadContent();
-    } catch (e) { alert(e.message); }
+    } catch (e) { 
+        alert("Ошибка публикации: " + e.message); 
+    }
 };
 
-window.approveUpdate = async (id, originalId) => {
-    if(!confirm('Применить изменения?')) return;
+// Применение изменений (Update)
+window.approveUpdate = async (id, originalHeroId) => {
+    if(!confirm('Применить изменения к герою? Старая версия будет заменена.')) return;
+    
     try {
         const subDoc = await getDoc(doc(db, "submissions", id));
-        if(!subDoc.exists()) return;
+        if (!subDoc.exists()) throw new Error("Заявка не найдена");
         const newData = subDoc.data();
-
-        // Находим героя в heroes
-        const heroesQ = query(collection(db, "heroes"), where("status", "==", "published"));
-        const heroesSnap = await getDocs(heroesQ);
-        let heroDocId = null;
         
-        heroesSnap.forEach(d => {
-            if (d.id === originalId || (d.data().name === newData.name && d.data().district === newData.district)) {
-                heroDocId = d.id;
-            }
-        });
-
-        if (heroDocId) {
-            await updateDoc(doc(db, "heroes", heroDocId), newData);
-            await updateDoc(doc(db, "submissions", id), { status: 'approved' });
-            alert('Изменения применены!');
-        } else {
-            alert('Ошибка: Оригинал не найден');
+        let targetHeroId = originalHeroId;
+        
+        // Если ID оригинала не передан или не найден, ищем по имени и району
+        if (!targetHeroId) {
+            const heroesQ = query(collection(db, "heroes"), where("status", "==", "published"));
+            const heroesSnap = await getDocs(heroesQ);
+            
+            heroesSnap.forEach(d => {
+                const hData = d.data();
+                if (hData.name === newData.name && hData.district === newData.district) {
+                    targetHeroId = d.id;
+                }
+            });
         }
+        
+        if (!targetHeroId) throw new Error("Не удалось найти оригинальную запись героя в базе для обновления.");
+        
+        // Обновляем запись в heroes
+        await updateDoc(doc(db, "heroes", targetHeroId), {
+            ...newData,
+            status: 'published', // На всякий случай
+            updatedAt: new Date(),
+            updatedBy: auth.currentUser.email
+        });
+        
+        // Помечаем заявку как выполненную
+        await updateDoc(doc(db, "submissions", id), { status: 'approved' });
+        
+        alert('✅ Изменения успешно применены!');
         loadContent();
-    } catch (e) { alert(e.message); }
+    } catch (e) { 
+        alert("Ошибка обновления: " + e.message); 
+    }
 };
 
+// Отклонение заявки (удаление из submissions)
 window.rejectHero = async (id) => {
-    if(!confirm('Отклонить?')) return;
-    await deleteDoc(doc(db, "submissions", id));
-    loadContent();
+    if(!confirm('Отклонить эту заявку? Данные будут удалены безвозвратно.')) return;
+    try {
+        await deleteDoc(doc(db, "submissions", id));
+        alert('Заявка отклонена.');
+        loadContent();
+    } catch (e) { alert("Ошибка: " + e.message); }
 };
 
-// Удаление заявки из submissions (для вкладки pending)
-window.deleteHero = async (id, name) => {
-    if (!confirm(`Удалить заявку "${name}"?`)) return;
-    await deleteDoc(doc(db, "submissions", id));
-    loadContent();
-};
-
-// Удаление героя из основной коллекции heroes (для вкладки published)
+// Удаление опубликованного героя (из базы heroes)
 window.deletePublishedHero = async (id, name) => {
-    if (!confirm(`⚠️ ВЫ УВЕРЕНЫ?\nУдалить героя "${name}" из базы?\nЭто действие необратимо!`)) return;
+    if (!confirm(`⚠️ ВЫ УВЕРЕНЫ?\nВы собираетесь УДАЛИТЬ героя "${name}" из базы данных.\nЭто действие нельзя отменить!`)) return;
+    
     try {
         await deleteDoc(doc(db, "heroes", id));
-        alert(`✅ Герой "${name}" удален.`);
+        alert(`✅ Герой "${name}" удален из приложения.`);
         loadContent();
     } catch (error) {
-        alert("Ошибка: " + error.message);
+        console.error(error);
+        alert("Ошибка удаления: " + error.message);
     }
 };
