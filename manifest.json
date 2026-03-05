@@ -1,9 +1,10 @@
 {
   "name": "Всё до Урала помнит своих",
   "short_name": "Урал Помнит",
+  "description": "Интерактивный мемориал героев Свердловской области",
   "start_url": ".",
   "display": "standalone",
-  "background_color": "#f5f7fa",
+  "background_color": "#f4f6f8",
   "theme_color": "#8B0000",
   "orientation": "portrait",
   "icons": [
