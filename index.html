@@ -21,25 +21,23 @@
                 <p class="subtitle">Мультимедийный мемориал</p>
             </div>
         </div>
-        <!-- Кнопка профиля -->
         <button id="profileBtn" class="random-btn" title="Профиль">👤</button>
     </header>
 
-    <!-- Навигация -->
+    <!-- Навигация (5 кнопок) -->
     <nav class="bottom-nav">
         <button class="nav-btn active" onclick="switchTab('heroes')">👥 Герои</button>
         <button class="nav-btn" onclick="switchTab('map')">🗺️ Карта</button>
         <button class="nav-btn" onclick="switchTab('media')">🎬 Медиа</button>
         <button class="nav-btn" onclick="switchTab('quest')">🏆 Квест</button>
+        <button class="nav-btn" onclick="switchTab('help')">ℹ️ Помощь</button>
     </nav>
 
     <!-- Вкладка: ГЕРОИ -->
     <section id="tab-heroes" class="tab-content active">
         <div class="controls-container">
             <input type="text" id="searchInput" placeholder="Поиск героя..." class="search-bar">
-            <div class="stats-bar">
-                <span id="statsDisplay">Найдено: 0</span>
-            </div>
+            <div class="stats-bar"><span id="statsDisplay">Найдено: 0</span></div>
         </div>
         <main id="heroesContainer" class="heroes-grid"></main>
         <footer>
@@ -77,6 +75,47 @@
         <div id="questList" class="quest-list"></div>
     </section>
 
+    <!-- Вкладка: ПОМОЩЬ (ИНСТРУКЦИЯ) -->
+    <section id="tab-help" class="tab-content">
+        <div class="help-container">
+            <h2 style="color: var(--primary); text-align: center;">📘 Инструкция</h2>
+            <div class="help-content">
+                <h3>🚀 Быстрый старт</h3>
+                <p>Приложение работает в браузере. Для удобства добавьте его на главный экран:</p>
+                <ul>
+                    <li><strong>Android:</strong> Меню (⋮) → «Добавить на главный экран».</li>
+                    <li><strong>iPhone:</strong> Поделиться → «На экран "Домой"».</li>
+                </ul>
+
+                <h3>👤 Регистрация</h3>
+                <p>Нажмите на значок <strong>👤</strong> вверху справа. Регистрация нужна только для добавления и редактирования историй. Для просмотра регистрация не обязательна.</p>
+
+                <h3>➕ Как добавить героя</h3>
+                <ol>
+                    <li>Войдите в аккаунт.</li>
+                    <li>Нажмите кнопку «➕ Добавить историю».</li>
+                    <li>Заполните данные (ФИО, биография, фото).</li>
+                    <li>Нажмите «Отправить на модерацию».</li>
+                </ol>
+                <p><em>⏳ История появится в списке после проверки администратором (1-3 дня).</em></p>
+
+                <h3>✏️ Редактирование</h3>
+                <p>Вы можете редактировать только тех героев, которых добавили сами. Откройте карточку героя → нажмите синюю кнопку «✏️ Редактировать мою запись». Изменения также пройдут модерацию.</p>
+
+                <h3>🗺️ Карта и Медиа</h3>
+                <p>Во вкладке «Карта» отмечены памятники Свердловской области. Во вкладке «Медиа» собраны видео-интервью и архивные документы.</p>
+
+                <h3>❓ Вопросы</h3>
+                <p>Если у вас возникли проблемы, свяжитесь с поддержкой проекта через форму обратной связи или напишите нам на почту.</p>
+                
+                <div style="text-align: center; margin-top: 30px; color: #777; font-size: 0.9rem;">
+                    <p>Проект «Всё до Урала помнит своих» © 2024</p>
+                    <p>Средний Урал, Свердловская область</p>
+                </div>
+            </div>
+        </div>
+    </section>
+
     <!-- Модальное окно: Детали героя -->
     <div id="modalDetails" class="modal">
         <div class="modal-content large-modal">
@@ -89,35 +128,27 @@
                     <span id="modalRank" class="badge"></span>
                     <span id="modalType" class="badge type-badge"></span>
                 </div>
-                
                 <h3>📜 Биография</h3>
                 <p id="modalStory" class="modal-story"></p>
-
                 <h3>📍 Боевой путь</h3>
                 <ul id="battlePathList" class="battle-path"></ul>
-
                 <div id="videoPlayerContainer"></div>
-
                 <h3>🏛️ Место памяти</h3>
                 <p id="modalLocation"></p>
-
-                <!-- Кнопка редактирования (видна только владельцу) -->
                 <button id="editOwnHeroBtn" class="secondary-btn" style="background:#2196f3; color:white; margin-bottom:10px; display:none;">✏️ Редактировать мою запись</button>
-
                 <button id="shareBtn" class="action-btn">📢 Поделиться</button>
             </div>
         </div>
     </div>
 
-    <!-- Модальное окно: Добавить/Редактировать историю -->
+    <!-- Модальное окно: Добавить/Редактировать -->
     <div id="modalAdd" class="modal">
         <div class="modal-content small-modal" style="max-height: 95vh; overflow-y: auto;">
             <span class="close-btn-add">&times;</span>
             <h2 id="formTitle">Добавить героя</h2>
-            <p id="loginWarning" style="color:red; display:none;">⚠️ Для добавления истории необходимо войти в аккаунт!</p>
-            
+            <p id="loginWarning" style="color:red; display:none;">⚠️ Необходимо войти в аккаунт!</p>
             <form id="addStoryForm">
-                <input type="hidden" id="editHeroId"> <!-- Скрытое поле для ID при редактировании -->
+                <input type="hidden" id="editHeroId">
                 <input type="text" id="inpName" placeholder="ФИО Героя" required class="form-input">
                 <div class="row-inputs">
                     <input type="date" id="inpBirth" class="form-input">
@@ -129,28 +160,22 @@
                     <option value="tyl">Труженик тыла</option>
                 </select>
                 <textarea id="inpStory" placeholder="Биография" rows="3" required class="form-input"></textarea>
-                
-                <label style="font-size:0.8rem; font-weight:bold;">Боевой путь (через точку с запятой):</label>
+                <label style="font-size:0.8rem; font-weight:bold;">Боевой путь (через ;):</label>
                 <input type="text" id="inpPath" placeholder="Москва, 1941; Берлин, 1945" class="form-input">
-                
                 <input type="text" id="inpDistrict" placeholder="Район / Город" required class="form-input">
-                <input type="text" id="inpLocation" placeholder="Адрес памятника/захоронения" class="form-input">
-                
-                <label style="font-size:0.8rem; font-weight:bold; margin-top:10px; display:block;">📷 Фото героя (файл):</label>
+                <input type="text" id="inpLocation" placeholder="Адрес памятника" class="form-input">
+                <label style="font-size:0.8rem; font-weight:bold; margin-top:10px; display:block;">📷 Фото (файл):</label>
                 <input type="file" id="inpFilePhoto" accept="image/*" class="form-input">
-                <small id="currentPhotoInfo" style="color:#666; font-size:0.7rem; display:none;">Текущее фото сохранено. Загрузите новое, чтобы заменить.</small>
-                
+                <small id="currentPhotoInfo" style="color:#666; font-size:0.7rem; display:none;">Фото сохранено. Загрузите новое для замены.</small>
                 <label style="font-size:0.8rem; font-weight:bold; margin-top:10px; display:block;">🎬 Ссылка на видео:</label>
                 <input type="url" id="inpVideoLink" placeholder="https://..." class="form-input">
-                
                 <input type="text" id="inpContact" placeholder="Ваши контакты" class="form-input">
-                
-                <button type="submit" id="submitBtn" class="action-btn" style="margin-top:15px;">Отправить на модерацию</button>
+                <button type="submit" id="submitBtn" class="action-btn" style="margin-top:15px;">Отправить</button>
             </form>
         </div>
     </div>
 
-    <!-- Модальное окно: Вход/Регистрация -->
+    <!-- Модальное окно: Вход -->
     <div id="authModal" class="modal">
         <div class="modal-content small-modal">
             <span class="close-btn-add" onclick="toggleAuthModal(false)">&times;</span>
@@ -164,7 +189,7 @@
                 <span id="authToggleText">Нет аккаунта?</span> 
                 <a href="#" id="authToggleLink" style="color:#8B0000; font-weight:bold;">Зарегистрироваться</a>
             </p>
-            <button id="logoutBtn" class="secondary-btn" style="display:none; width:100%; margin-top:10px; background:#607d8b; color:white;">Выйти из аккаунта</button>
+            <button id="logoutBtn" class="secondary-btn" style="display:none; width:100%; margin-top:10px; background:#607d8b; color:white;">Выйти</button>
             <p id="userInfo" style="text-align:center; font-size:0.8rem; color:#666; margin-top:10px;"></p>
         </div>
     </div>
