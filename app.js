@@ -1,18 +1,28 @@
-import { db } from './firebase-config.js';
-import { collection, getDocs, query, where, addDoc, orderBy } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+import { db, auth } from './firebase-config.js';
+import { collection, getDocs, query, where, addDoc, updateDoc, doc, orderBy } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+import { createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
 
-// ⚠️ ВСТАВЬ СЮДА СВОЙ КЛЮЧ ОТ IMGBB (получить на imgbb.com/api)
+// ⚠️ ВСТАВЬ СЮДА СВОЙ КЛЮЧ ОТ IMGBB
 const IMGBB_API_KEY = '5ecc8ac91b5b2b810d189851ed7ff416'; 
 
 let heroesData = [];
 let map = null;
+let currentUser = null;
+let isLoginMode = true;
 
 document.addEventListener('DOMContentLoaded', () => {
+    // Слушатель состояния авторизации
+    onAuthStateChanged(auth, (user) => {
+        currentUser = user;
+        updateUIForUser();
+    });
+
     loadHeroesFromDB();
     loadQuests();
     loadMedia();
     initMap();
 
+    // Навигация
     window.switchTab = (tabName) => {
         document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active'));
         document.querySelectorAll('.nav-btn').forEach(el => el.classList.remove('active'));
@@ -21,21 +31,106 @@ document.addEventListener('DOMContentLoaded', () => {
         if (tabName === 'map' && map) setTimeout(() => map.invalidateSize(), 300);
     };
 
-    document.getElementById('openAddModalBtn')?.addEventListener('click', () => toggleModal('modalAdd', true));
+    // Профиль
+    document.getElementById('profileBtn')?.addEventListener('click', () => toggleAuthModal(true));
+    
+    // Форма авторизации
+    document.getElementById('authForm')?.addEventListener('submit', handleAuth);
+    document.getElementById('authToggleLink')?.addEventListener('click', (e) => {
+        e.preventDefault();
+        isLoginMode = !isLoginMode;
+        document.getElementById('authTitle').textContent = isLoginMode ? 'Вход' : 'Регистрация';
+        document.getElementById('authSubmitBtn').textContent = isLoginMode ? 'Войти' : 'Зарегистрироваться';
+        document.getElementById('authToggleText').textContent = isLoginMode ? 'Нет аккаунта?' : 'Есть аккаунт?';
+        document.getElementById('authToggleLink').textContent = isLoginMode ? 'Зарегистрироваться' : 'Войти';
+    });
+    document.getElementById('logoutBtn')?.addEventListener('click', () => signOut(auth));
+
+    // Модальные окна
+    document.getElementById('openAddModalBtn')?.addEventListener('click', openAddForm);
     document.querySelectorAll('.close-btn, .close-btn-add').forEach(btn => 
-        btn.addEventListener('click', () => { toggleModal('modalAdd', false); toggleModal('modalDetails', false); })
+        btn.addEventListener('click', () => { 
+            document.querySelectorAll('.modal').forEach(m => m.style.display = 'none'); 
+            document.body.style.overflow = 'auto'; 
+        })
     );
     
     document.getElementById('addStoryForm')?.addEventListener('submit', handleFormSubmit);
     document.getElementById('shareBtn')?.addEventListener('click', shareHero);
+    document.getElementById('editOwnHeroBtn')?.addEventListener('click', editOwnHero);
     document.getElementById('searchInput')?.addEventListener('input', filterHeroes);
 });
 
-function toggleModal(id, show) {
-    const el = document.getElementById(id);
-    if (el) {
-        el.style.display = show ? 'flex' : 'none';
-        document.body.style.overflow = show ? 'hidden' : 'auto';
+function toggleAuthModal(show) {
+    const modal = document.getElementById('authModal');
+    modal.style.display = show ? 'flex' : 'none';
+    if (show && currentUser) {
+        document.getElementById('authForm').style.display = 'none';
+        document.getElementById('logoutBtn').style.display = 'block';
+        document.getElementById('userInfo').textContent = `Вы вошли как: ${currentUser.email}`;
+        document.getElementById('authTitle').textContent = 'Профиль';
+    } else if (show) {
+        document.getElementById('authForm').style.display = 'block';
+        document.getElementById('logoutBtn').style.display = 'none';
+        document.getElementById('userInfo').textContent = '';
+    }
+}
+
+function updateUIForUser() {
+    const btn = document.getElementById('profileBtn');
+    if (currentUser) {
+        btn.textContent = '✅'; // Галочка если вошел
+    } else {
+        btn.textContent = '👤';
+    }
+}
+
+function openAddForm(heroToEdit = null) {
+    if (!currentUser && !heroToEdit) {
+        alert('⚠️ Пожалуйста, войдите в аккаунт, чтобы добавить историю.');
+        toggleAuthModal(true);
+        return;
+    }
+
+    const modal = document.getElementById('modalAdd');
+    const form = document.getElementById('addStoryForm');
+    const title = document.getElementById('formTitle');
+    const loginWarn = document.getElementById('loginWarning');
+    const submitBtn = document.getElementById('submitBtn');
+    const editIdInput = document.getElementById('editHeroId');
+    const currentPhotoInfo = document.getElementById('currentPhotoInfo');
+    const fileInput = document.getElementById('inpFilePhoto');
+
+    modal.style.display = 'flex';
+    document.body.style.overflow = 'hidden';
+    loginWarn.style.display = 'none';
+    form.reset();
+    editIdInput.value = '';
+    currentPhotoInfo.style.display = 'none';
+    fileInput.required = true;
+
+    if (heroToEdit) {
+        title.textContent = 'Редактирование героя (на модерацию)';
+        submitBtn.textContent = 'Отправить изменения на проверку';
+        editIdInput.value = heroToEdit.id;
+        
+        // Заполнение полей
+        document.getElementById('inpName').value = heroToEdit.name || '';
+        document.getElementById('inpBirth').value = heroToEdit.birthDate || '';
+        document.getElementById('inpDeath').value = heroToEdit.deathDate || '';
+        document.getElementById('inpRank').value = heroToEdit.rank || '';
+        document.getElementById('inpType').value = heroToEdit.type || 'tyl';
+        document.getElementById('inpStory').value = heroToEdit.story || '';
+        document.getElementById('inpPath').value = heroToEdit.battlePath || '';
+        document.getElementById('inpDistrict').value = heroToEdit.district || '';
+        document.getElementById('inpLocation').value = heroToEdit.location || '';
+        document.getElementById('inpVideoLink').value = heroToEdit.video || '';
+        
+        currentPhotoInfo.style.display = 'block';
+        fileInput.required = false; // Фото не обязательно при редактировании
+    } else {
+        title.textContent = 'Добавить героя';
+        submitBtn.textContent = 'Отправить на модерацию';
     }
 }
 
@@ -110,27 +205,30 @@ function openHeroDetails(hero) {
     if (hero.video) {
         if (hero.video.includes('youtube.com') || hero.video.includes('youtu.be')) {
             const videoId = hero.video.split('v=')[1]?.split('&')[0] || hero.video.split('/').pop();
-            videoContainer.innerHTML = `
-                <h3>🎬 Видео-история</h3>
-                <div class="video-wrapper">
-                    <iframe src="https://www.youtube.com/embed/${videoId}" frameborder="0" allowfullscreen></iframe>
-                </div>`;
+            videoContainer.innerHTML = `<h3>🎬 Видео</h3><div class="video-wrapper"><iframe src="https://www.youtube.com/embed/${videoId}" frameborder="0"></iframe></div>`;
         } else if (hero.video.includes('vk.com')) {
-             videoContainer.innerHTML = `
-                <h3>🎬 Видео-история</h3>
-                <div class="video-wrapper">
-                    <iframe src="${hero.video}" frameborder="0" allowfullscreen></iframe>
-                </div>`;
+             videoContainer.innerHTML = `<h3>🎬 Видео</h3><div class="video-wrapper"><iframe src="${hero.video}" frameborder="0"></iframe></div>`;
         } else {
-            videoContainer.innerHTML = `
-                <h3>🎬 Видео-история</h3>
-                <div class="video-wrapper">
-                    <video controls><source src="${hero.video}" type="video/mp4"></video>
-                </div>`;
+            videoContainer.innerHTML = `<h3>🎬 Видео</h3><div class="video-wrapper"><video controls><source src="${hero.video}"></video></div>`;
         }
     }
 
-    toggleModal('modalDetails', true);
+    // Проверка прав на редактирование
+    const editBtn = document.getElementById('editOwnHeroBtn');
+    if (currentUser && hero.addedBy === currentUser.uid) {
+        editBtn.style.display = 'block';
+        // Сохраняем текущего героя в кнопке для доступа при клике
+        editBtn.onclick = () => openAddForm(hero);
+    } else {
+        editBtn.style.display = 'none';
+    }
+
+    document.getElementById('modalDetails').style.display = 'flex';
+    document.body.style.overflow = 'hidden';
+}
+
+function editOwnHero() {
+    // Логика вызывается через onclick кнопки, которая уже настроена в openHeroDetails
 }
 
 function filterHeroes() {
@@ -139,37 +237,56 @@ function filterHeroes() {
     renderHeroes(filtered);
 }
 
+async function handleAuth(e) {
+    e.preventDefault();
+    const email = document.getElementById('authEmail').value;
+    const pass = document.getElementById('authPass').value;
+    
+    try {
+        if (isLoginMode) {
+            await signInWithEmailAndPassword(auth, email, pass);
+        } else {
+            await createUserWithEmailAndPassword(auth, email, pass);
+        }
+        toggleAuthModal(false);
+        alert(isLoginMode ? 'С возвращением!' : 'Аккаунт создан!');
+    } catch (error) {
+        alert('Ошибка: ' + error.message);
+    }
+}
+
 async function handleFormSubmit(e) {
     e.preventDefault();
+    if (!currentUser) return alert('Ошибка авторизации');
+
     const btn = document.getElementById('submitBtn');
     const originalText = btn.textContent;
-    
     btn.disabled = true;
-    btn.textContent = '⏳ Загрузка фото...';
+    btn.textContent = '⏳ Обработка...';
 
     try {
-        let photoURL = 'https://via.placeholder.com/400?text=Нет+фото';
-        let videoURL = document.getElementById('inpVideoLink').value.trim();
-
-        const photoFile = document.getElementById('inpFilePhoto').files[0];
-        if (photoFile) {
+        let photoURL = null;
+        const editId = document.getElementById('editHeroId').value;
+        const fileInput = document.getElementById('inpFilePhoto');
+        
+        // Если это редактирование и файл не выбран, оставляем старое фото (нужно будет взять из базы)
+        // Но для простоты MVP: если редактируем и файл не выбран, просим пользователя оставить поле пустым, 
+        // а бэкенд подставит старое. Здесь мы просто не грузим новое.
+        
+        if (fileInput.files[0]) {
+            btn.textContent = '⏳ Загрузка фото...';
             const formData = new FormData();
-            formData.append('image', photoFile);
+            formData.append('image', fileInput.files[0]);
             formData.append('key', IMGBB_API_KEY);
-
             const response = await fetch('https://api.imgbb.com/1/upload', { method: 'POST', body: formData });
             const result = await response.json();
-            
-            if (result.success) {
-                photoURL = result.data.url;
-            } else {
-                throw new Error('Ошибка загрузки фото: ' + (result.error?.message || 'Неизвестная ошибка'));
-            }
+            if (result.success) photoURL = result.data.url;
+            else throw new Error('Ошибка фото');
         }
 
         btn.textContent = '💾 Сохранение...';
         
-        await addDoc(collection(db, "submissions"), {
+        const formData = {
             name: document.getElementById('inpName').value,
             birthDate: document.getElementById('inpBirth').value,
             deathDate: document.getElementById('inpDeath').value,
@@ -180,15 +297,40 @@ async function handleFormSubmit(e) {
             district: document.getElementById('inpDistrict').value,
             location: document.getElementById('inpLocation').value,
             contact: document.getElementById('inpContact').value,
-            image: photoURL,
-            video: videoURL || null,
-            status: 'pending',
-            createdAt: new Date()
-        });
+            video: document.getElementById('inpVideoLink').value.trim(),
+            addedBy: currentUser.uid, // Кто создал/изменил
+            updatedAt: new Date()
+        };
 
-        alert('✅ Отправлено на модерацию!');
+        if (photoURL) formData.image = photoURL;
+
+        if (editId) {
+            // РЕДАКТИРОВАНИЕ: Создаем заявку на обновление
+            // Находим оригинал, чтобы скопировать старое фото если новое не загружено
+            const original = heroesData.find(h => h.id === editId);
+            if (original && !photoURL) formData.image = original.image;
+
+            await addDoc(collection(db, "submissions"), {
+                ...formData,
+                originalHeroId: editId, // Связь с оригиналом
+                status: 'pending_update', // Статус: ожидает обновления
+                changeType: 'update'
+            });
+            alert('✅ Изменения отправлены на модерацию! После одобрения данные обновятся.');
+        } else {
+            // НОВЫЙ ГЕРОЙ
+            await addDoc(collection(db, "submissions"), {
+                ...formData,
+                status: 'pending',
+                changeType: 'create',
+                createdAt: new Date()
+            });
+            alert('✅ История отправлена на модерацию!');
+        }
+
         document.getElementById('addStoryForm').reset();
-        toggleModal('modalAdd', false);
+        document.querySelectorAll('.modal').forEach(m => m.style.display = 'none');
+        document.body.style.overflow = 'auto';
 
     } catch (error) {
         console.error(error);
@@ -205,11 +347,11 @@ function shareHero() {
     else alert('Ссылка скопирована!');
 }
 
+// --- Остальные функции (Карта, Медиа, Квесты) без изменений ---
 function initMap() {
     if (map) return;
     map = L.map('memoryMap').setView([57.0, 60.0], 7); 
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { attribution: '© OpenStreetMap' }).addTo(map);
-
     const memorials = [
         { name: "Мемориал 'Черный Тюльпан'", coords: [56.83, 60.60], desc: "Екатеринбург" },
         { name: "Площадь 1905 года", coords: [56.84, 60.61], desc: "Вечный огонь" },
@@ -221,9 +363,7 @@ function initMap() {
 function loadMedia() {
     const vCont = document.getElementById('videoContainer');
     vCont.innerHTML = '<p style="padding:15px">Загрузка...</p>';
-    
     const videos = heroesData.filter(h => h.video);
-    
     if (videos.length === 0) {
         vCont.innerHTML = '<p style="padding:15px">Видео-историй пока нет.</p>';
     } else {
@@ -238,32 +378,28 @@ function loadMedia() {
             </div>
         `).join('');
     }
-
     const aCont = document.getElementById('archiveContainer');
-    aCont.innerHTML = '<div class="archive-card archive-item"><span class="archive-icon">📄</span><div>Пример архивного документа (PDF)</div></div>';
+    aCont.innerHTML = '<div class="archive-card archive-item"><span class="archive-icon">📄</span><div>Архивные документы (скоро)</div></div>';
 }
 
 function loadQuests() {
     const quests = [
-        { id: 1, text: "Найти информацию о герое своего района", done: false },
-        { id: 2, text: "Посетить мемориал и сделать фото", done: false },
-        { id: 3, text: "Записать рассказ родственника", done: false }
+        { id: 1, text: "Зарегистрироваться в приложении", done: false },
+        { id: 2, text: "Добавить историю героя", done: false },
+        { id: 3, text: "Посетить мемориал", done: false }
     ];
     const saved = JSON.parse(localStorage.getItem('uralQuests') || '[]');
     quests.forEach(q => { if(saved.includes(q.id)) q.done = true; });
-
     document.getElementById('questList').innerHTML = quests.map(q => `
         <div class="quest-item ${q.done ? 'completed' : ''}">
             <span>${q.text}</span>
             ${!q.done ? `<button class="quest-btn" onclick="completeQuest(${q.id})">Выполнено</button>` : '✅'}
         </div>
     `).join('');
-    
     const done = quests.filter(q => q.done).length;
     document.getElementById('questBar').style.width = `${(done/quests.length)*100}%`;
     document.getElementById('questScore').textContent = `${done}/${quests.length}`;
 }
-
 window.completeQuest = (id) => {
     const saved = JSON.parse(localStorage.getItem('uralQuests') || '[]');
     if (!saved.includes(id)) {
