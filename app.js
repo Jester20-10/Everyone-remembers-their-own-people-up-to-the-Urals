@@ -45,10 +45,14 @@ document.addEventListener('DOMContentLoaded', () => {
     document.getElementById('logoutBtn')?.addEventListener('click', async () => {
         await signOut(auth);
         toggleAuthModal(false);
-        // alert('Вы вышли из аккаунта'); // Можно убрать алерт, чтобы не мешал
     });
 
-    document.getElementById('openAddModalBtn')?.addEventListener('click', openAddForm);
+    // Кнопка добавления НОВОГО героя
+    document.getElementById('openAddModalBtn')?.addEventListener('click', () => {
+        // Принудительно открываем форму БЕЗ редактирования
+        openAddForm(null); 
+    });
+
     document.querySelectorAll('.close-btn, .close-btn-add').forEach(btn => 
         btn.addEventListener('click', () => { 
             document.querySelectorAll('.modal').forEach(m => m.style.display = 'none'); 
@@ -58,6 +62,7 @@ document.addEventListener('DOMContentLoaded', () => {
     
     document.getElementById('addStoryForm')?.addEventListener('submit', handleFormSubmit);
     document.getElementById('shareBtn')?.addEventListener('click', shareHero);
+    // Кнопка редактирования внутри карточки
     document.getElementById('editOwnHeroBtn')?.addEventListener('click', editOwnHero);
     document.getElementById('searchInput')?.addEventListener('input', filterHeroes);
 });
@@ -123,12 +128,15 @@ window.openAddFormById = async (id) => {
     if (d.exists()) openAddForm({id: d.id, ...d.data()});
 };
 
+// --- ГЛАВНАЯ ФУНКЦИЯ ОТКРЫТИЯ ФОРМЫ ---
 function openAddForm(heroToEdit = null) {
-    if (!currentUser && !heroToEdit) {
-        alert('⚠️ Пожалуйста, войдите в аккаунт.');
+    // 1. Проверка авторизации (только для новых героев)
+    if (!heroToEdit && !currentUser) {
+        alert('⚠️ Пожалуйста, войдите в аккаунт, чтобы добавить историю.');
         toggleAuthModal(true);
         return;
     }
+
     const modal = document.getElementById('modalAdd');
     const form = document.getElementById('addStoryForm');
     const title = document.getElementById('formTitle');
@@ -137,19 +145,25 @@ function openAddForm(heroToEdit = null) {
     const currentPhotoInfo = document.getElementById('currentPhotoInfo');
     const fileInput = document.getElementById('inpFilePhoto');
 
+    // Сброс формы
+    form.reset();
+    
+    // 🔥 КРИТИЧЕСКИ ВАЖНО: Сбрасываем ID редактирования в пустую строку
+    editIdInput.value = ''; 
+
     modal.style.display = 'flex';
     document.body.style.overflow = 'hidden';
-    form.reset();
-    editIdInput.value = ''; // Сбрасываем ID редактирования
     currentPhotoInfo.style.display = 'none';
-    fileInput.required = true; // Для нового героя фото обязательно
 
     if (heroToEdit) {
-        // РЕЖИМ РЕДАКТИРОВАНИЯ
-        title.textContent = 'Редактирование (на модерацию)';
+        // === РЕЖИМ РЕДАКТИРОВАНИЯ ===
+        title.textContent = 'Редактирование записи (на модерацию)';
         submitBtn.textContent = 'Отправить изменения';
-        editIdInput.value = heroToEdit.id;
         
+        // Устанавливаем ID редактируемого героя
+        editIdInput.value = heroToEdit.id; 
+        
+        // Заполняем поля данными
         document.getElementById('inpName').value = heroToEdit.name || '';
         document.getElementById('inpBirth').value = heroToEdit.birthDate || '';
         document.getElementById('inpDeath').value = heroToEdit.deathDate || '';
@@ -162,11 +176,19 @@ function openAddForm(heroToEdit = null) {
         document.getElementById('inpVideoLink').value = heroToEdit.video || '';
         
         currentPhotoInfo.style.display = 'block';
-        fileInput.required = false; // При редактировании фото не обязательно
+        fileInput.required = false; // Фото менять не обязательно
     } else {
-        // РЕЖИМ НОВОГО ГЕРОЯ
-        title.textContent = 'Добавить героя';
+        // === РЕЖИМ НОВОГО ГЕРОЯ ===
+        title.textContent = 'Добавить нового героя';
         submitBtn.textContent = 'Отправить на модерацию';
+        
+        // Убеждаемся, что ID пуст
+        if (editIdInput.value !== '') {
+            console.error("Ошибка: ID не сбросился!");
+            editIdInput.value = '';
+        }
+        
+        fileInput.required = true; // Для нового героя фото обязательно
     }
 }
 
@@ -291,10 +313,12 @@ async function handleFormSubmit(e) {
 
     try {
         let photoURL = null;
-        const editId = document.getElementById('editHeroId').value.trim(); // Получаем ID редактирования
+        
+        // 🔥 Читаем ID редактирования ПРЯМО ИЗ ПОЛЯ В МОМЕНТ ОТПРАВКИ
+        const editId = document.getElementById('editHeroId').value.trim();
         const fileInput = document.getElementById('inpFilePhoto');
         
-        // 1. Загрузка фото (если выбрано)
+        // 1. Загрузка фото
         if (fileInput.files[0]) {
             btn.textContent = '⏳ Загрузка фото...';
             const formData = new FormData();
@@ -313,7 +337,6 @@ async function handleFormSubmit(e) {
 
         btn.textContent = '💾 Сохранение...';
         
-        // Сбор данных формы
         const formData = {
             name: document.getElementById('inpName').value,
             birthDate: document.getElementById('inpBirth').value,
@@ -332,48 +355,42 @@ async function handleFormSubmit(e) {
 
         if (photoURL) formData.image = photoURL;
 
-        // 2. ЛОГИКА: НОВЫЙ ИЛИ РЕДАКТИРОВАНИЕ?
-        if (editId) {
-            // === РЕДАКТИРОВАНИЕ СУЩЕСТВУЮЩЕГО ===
-            // Если это редактирование, берем старое фото, если новое не загружено
+        // 🔥 ЖЕСТКАЯ ПРОВЕРКА: НОВЫЙ ИЛИ СТАРЫЙ?
+        if (editId && editId.length > 0) {
+            // === РЕДАКТИРОВАНИЕ ===
+            console.log("Режим редактирования для ID:", editId);
+            
             if (!photoURL) {
-                // Ищем оригинал в текущем списке героев или в базе submissions
                 const original = heroesData.find(h => h.id === editId);
-                if (original && original.image) {
-                    formData.image = original.image;
-                }
+                if (original && original.image) formData.image = original.image;
             }
             
             await addDoc(collection(db, "submissions"), {
                 ...formData,
                 originalHeroId: editId,
-                status: 'pending_update', // Статус: ожидает обновления
+                status: 'pending_update',
                 changeType: 'update',
                 createdAt: new Date()
             });
             alert('✅ Изменения отправлены на модерацию!');
             
         } else {
-            // === СОЗДАНИЕ НОВОГО ГЕРОЯ ===
-            // Фото обязательно для новых (проверено в openAddForm)
-            if (!photoURL && !formData.image) {
-                 // Если фото так и не загрузилось и старого нет
-                 // Но мы требовали файл в openAddForm, так что photoURL должен быть
-            }
-
+            // === СОЗДАНИЕ НОВОГО ===
+            console.log("Режим создания НОВОГО героя");
+            
             await addDoc(collection(db, "submissions"), {
                 ...formData,
-                status: 'pending', // Статус: новая заявка
+                status: 'pending', // ТОЛЬКО pending
                 changeType: 'create',
                 createdAt: new Date()
             });
-            alert('✅ История отправлена на модерацию!');
+            alert('✅ Новый герой отправлен на модерацию!');
         }
 
         document.getElementById('addStoryForm').reset();
         document.querySelectorAll('.modal').forEach(m => m.style.display = 'none');
         document.body.style.overflow = 'auto';
-        loadMyHeroes(); // Обновить список в профиле
+        loadMyHeroes();
 
     } catch (error) {
         console.error(error);
